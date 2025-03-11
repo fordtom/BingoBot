@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+
+# Virtual Environment
+.env
+.venv
+
+*.csv
+*.db
+
+# IDE
+.vscode/
+
+# OS specific
+.DS_Store
+
