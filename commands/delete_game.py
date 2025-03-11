@@ -1,6 +1,6 @@
 import discord
 from db import get_db
-from utils import check_channel
+from utils import check_channel, get_active_game
 
 
 async def execute(interaction: discord.Interaction, game_id: int):
@@ -28,6 +28,7 @@ async def execute(interaction: discord.Interaction, game_id: int):
     try:
         # Get game title for confirmation message
         game_title = game["title"]
+        is_active = bool(game["is_active"])
         
         # Start a transaction
         await db.db.execute("BEGIN TRANSACTION")
@@ -54,11 +55,25 @@ async def execute(interaction: discord.Interaction, game_id: int):
         # Delete the game itself
         await db.db.execute("DELETE FROM games WHERE game_id = ?", (game_id,))
         
+        # If we deleted the active game, find the game with the lowest ID and set it as active
+        new_active_game_info = ""
+        if is_active:
+            # Find game with lowest ID
+            async with db.db.execute("SELECT * FROM games ORDER BY game_id ASC LIMIT 1") as cursor:
+                next_game = await cursor.fetchone()
+            
+            if next_game:
+                # Set this game as active
+                await db.db.execute("UPDATE games SET is_active = 1 WHERE game_id = ?", (next_game["game_id"],))
+                new_active_game_info = f"\nGame '{next_game['title']}' (ID: {next_game['game_id']}) has been set as the new active game."
+            else:
+                new_active_game_info = "\nNo games remain. You'll need to create a new game."
+        
         # Commit the transaction
         await db.db.commit()
         
         await interaction.response.send_message(
-            f"Game '{game_title}' (ID: {game_id}) has been deleted along with all associated data."
+            f"Game '{game_title}' (ID: {game_id}) has been deleted along with all associated data.{new_active_game_info}"
         )
         
     except Exception as e:

@@ -14,3 +14,7 @@ __pycache__/
 # OS specific
 .DS_Store
 
+# Project documentation
+CLAUDE.md
+Spec.md
+

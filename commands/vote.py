@@ -1,7 +1,7 @@
 import discord
 from db import get_db
 from models.event import EventStatus
-from utils import check_channel
+from utils import check_channel, get_or_validate_game
 
 
 async def execute(interaction: discord.Interaction, event_id: int, game_id: int = None):
@@ -10,7 +10,7 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
     
     Args:
         interaction: The Discord interaction that triggered the command
-        event_id: ID of the event to vote for
+        event_id: ID of the event to vote for (this is the event number within the game, not a global ID)
         game_id: ID of the game (optional, uses active game if not provided)
     """
     # Check if command is used in the allowed channel
@@ -19,24 +19,12 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         
     db = await get_db()
     
-    # If game_id not provided, get the active game
-    if game_id is None:
-        async with db.db.execute("SELECT game_id FROM games WHERE is_active = 1") as cursor:
-            active_game = await cursor.fetchone()
-            
-        if not active_game:
-            await interaction.response.send_message("No active game found. Use `/bingo set_active_game` to set an active game.")
-            return
-            
-        game_id = active_game["game_id"]
-    
-    # Get game info
-    async with db.db.execute("SELECT * FROM games WHERE game_id = ?", (game_id,)) as cursor:
-        game = await cursor.fetchone()
-        
+    # Get the game (active game if game_id is None)
+    game = await get_or_validate_game(interaction, game_id)
     if not game:
-        await interaction.response.send_message(f"Game with ID {game_id} not found.")
-        return
+        return  # Error message already sent by get_or_validate_game
+        
+    game_id = game["game_id"]
     
     # Check if the user is a player in this game
     async with db.db.execute(
@@ -99,8 +87,13 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         vote_count_row = await cursor.fetchone()
         vote_count = vote_count_row["vote_count"]
     
-    # Calculate consensus - typically 4 out of 5 (80%), but we'll generalize
-    consensus_threshold = max(4, int(player_count * 0.8))
+    # Calculate consensus threshold - for small games, require all players
+    # For larger games, use the percentage from config
+    from utils.config import VOTE_CONSENSUS_THRESHOLD
+    if player_count <= 3:
+        consensus_threshold = player_count  # Everyone must agree for small games
+    else:
+        consensus_threshold = max(2, int(player_count * VOTE_CONSENSUS_THRESHOLD))
     
     # Check if consensus is reached
     if vote_count >= consensus_threshold:

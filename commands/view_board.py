@@ -147,7 +147,7 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
             square = grid[row][col]
             if square:
                 status_marker = "✅" if square["status"] == "CLOSED" else "⬜"
-                events_text += f"{status_marker} **({row+1},{col+1})**: {square['description']}\n"
+                events_text += f"{status_marker} **({row+1},{col+1})** [Event {square['event_id']}]: {square['description']}\n"
     
     embed.add_field(name="Events", value=events_text, inline=False)
     
