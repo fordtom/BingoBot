@@ -1,16 +1,14 @@
+"""Command to display a user's bingo board."""
 import discord
+
 from db import get_db
-from utils import (
-    get_or_validate_game, 
-    check_user_in_game, 
-    send_error_message, 
-    check_channel,
+from bingo.utils.channel_check import is_allowed_channel
+
+from bingo.utils.db_utils import get_or_validate_game, check_user_in_game, send_error_message
+from bingo.utils.config import (
     EMBED_COLOR_PRIMARY,
     BOARD_SQUARE_EMPTY,
-    BOARD_SQUARE_FILLED,
-    BOARD_SQUARE_SEPARATOR,
-    BOARD_ROW_SEPARATOR,
-    BOARD_CORNER
+    BOARD_SQUARE_FILLED
 )
 
 
@@ -24,22 +22,23 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
         game_id: ID of the game (optional, uses active game if not provided)
     """
     # Check if command is used in the allowed channel
-    if not await check_channel(interaction):
+    if not await is_allowed_channel(interaction):
         return
     
     # Defer response to give us time to process
     await interaction.response.defer(ephemeral=False)
     
+    db = await get_db()
+    
     # Get active game or validate provided game_id
-    game = await get_or_validate_game(interaction, game_id)
+    game = await get_or_validate_game(interaction, game_id, db)
     if not game:
         return  # Error already handled by get_or_validate_game
     
     game_id = game["game_id"]
-    db = await get_db()
     
     # Check if user has a board for this game
-    if not await check_user_in_game(game_id, user.id):
+    if not await check_user_in_game(game_id, user.id, db):
         await send_error_message(
             interaction, 
             f"{user.display_name} does not have a board for this game."
@@ -82,9 +81,6 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
         description=f"Game: **{game['title']}** (ID: {game_id})",
         color=EMBED_COLOR_PRIMARY
     )
-    
-    # Create board visualization using emoji and markdown
-    board_grid = []
     
     # Create a 2D grid to store events by position
     grid = [[None for _ in range(grid_size)] for _ in range(grid_size)]

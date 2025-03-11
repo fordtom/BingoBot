@@ -1,3 +1,4 @@
+"""Utility for generating random bingo boards."""
 import random
 from typing import List, Dict, Any
 

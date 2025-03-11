@@ -1,12 +1,14 @@
+"""Command to display help information about the bingo bot."""
 import discord
 from discord import Embed
-from utils import check_channel
+from bingo.utils.channel_check import is_allowed_channel
+
 
 async def execute(interaction: discord.Interaction):
     """Generate a help message explaining how to use the bot and its commands."""
     
     # Check if command is used in the allowed channel
-    if not await check_channel(interaction):
+    if not await is_allowed_channel(interaction):
         return
     
     # Defer the response since help content might take a moment to compile
@@ -38,6 +40,13 @@ async def execute(interaction: discord.Interaction):
         inline=False
     )
     
+    help_embed.add_field(
+        name="📊 `/bingo list_games`",
+        value=(
+            "Lists all available bingo games with their details.\n"
+        ),
+        inline=False
+    )
     
     help_embed.add_field(
         name="📊 `/bingo list_events [game_id?]`",
@@ -73,6 +82,15 @@ async def execute(interaction: discord.Interaction):
         value=(
             "Sets which game is currently active for commands that don't specify a game ID.\n"
             "• `game_id`: ID of the game to make active"
+        ),
+        inline=False
+    )
+    
+    help_embed.add_field(
+        name="🗑️ `/bingo delete_game <game_id>`",
+        value=(
+            "Deletes a game and all associated data.\n"
+            "• `game_id`: ID of the game to delete"
         ),
         inline=False
     )

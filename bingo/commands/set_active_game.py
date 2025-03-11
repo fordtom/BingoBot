@@ -1,6 +1,7 @@
+"""Command to set a game as the active game."""
 import discord
 from db import get_db
-from utils import check_channel
+from bingo.utils.channel_check import is_allowed_channel
 
 
 async def execute(interaction: discord.Interaction, game_id: int):
@@ -12,7 +13,7 @@ async def execute(interaction: discord.Interaction, game_id: int):
         game_id: ID of the game to set as active
     """
     # Check if command is used in the allowed channel
-    if not await check_channel(interaction):
+    if not await is_allowed_channel(interaction):
         return
         
     db = await get_db()

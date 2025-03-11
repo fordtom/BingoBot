@@ -1,3 +1,4 @@
+"""BoardSquare model for bingo games."""
 from dataclasses import dataclass
 
 

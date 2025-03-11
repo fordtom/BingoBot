@@ -1,3 +1,4 @@
+"""Game model for bingo games."""
 from dataclasses import dataclass
 from typing import Optional
 

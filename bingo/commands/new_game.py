@@ -1,7 +1,11 @@
+"""Command to create a new bingo game."""
 import discord
 from db import get_db
-from models.event import EventStatus
-from utils import parse_events_csv, generate_board, check_channel
+from bingo.utils.channel_check import is_allowed_channel
+
+from bingo.models.event import EventStatus
+from bingo.utils.csv_parser import parse_events_csv
+from bingo.utils.board_generator import generate_board
 
 
 async def execute(interaction: discord.Interaction, title: str, grid_size: int, 
@@ -17,7 +21,7 @@ async def execute(interaction: discord.Interaction, title: str, grid_size: int,
         events_csv: Optional CSV file containing event descriptions
     """
     # Check if command is used in the allowed channel
-    if not await check_channel(interaction):
+    if not await is_allowed_channel(interaction):
         return
         
     if grid_size < 2 or grid_size > 10:

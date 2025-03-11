@@ -1,7 +1,12 @@
+"""Command to vote that an event has occurred."""
 import discord
 from db import get_db
-from models.event import EventStatus
-from utils import check_channel, get_or_validate_game
+from bingo.utils.channel_check import is_allowed_channel
+
+from bingo.models.event import EventStatus
+from bingo.utils.db_utils import get_or_validate_game, check_user_in_game
+from bingo.utils.config import VOTE_CONSENSUS_THRESHOLD
+from bingo.utils.win_checker import check_for_winners, announce_winners
 
 
 async def execute(interaction: discord.Interaction, event_id: int, game_id: int = None):
@@ -14,26 +19,20 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         game_id: ID of the game (optional, uses active game if not provided)
     """
     # Check if command is used in the allowed channel
-    if not await check_channel(interaction):
+    if not await is_allowed_channel(interaction):
         return
         
     db = await get_db()
     
     # Get the game (active game if game_id is None)
-    game = await get_or_validate_game(interaction, game_id)
+    game = await get_or_validate_game(interaction, game_id, db)
     if not game:
         return  # Error message already sent by get_or_validate_game
         
     game_id = game["game_id"]
     
     # Check if the user is a player in this game
-    async with db.db.execute(
-        "SELECT * FROM boards WHERE game_id = ? AND user_id = ?", 
-        (game_id, interaction.user.id)
-    ) as cursor:
-        player_board = await cursor.fetchone()
-    
-    if not player_board:
+    if not await check_user_in_game(game_id, interaction.user.id, db):
         await interaction.response.send_message("You are not a player in this game.")
         return
     
@@ -89,13 +88,13 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
     
     # Calculate consensus threshold - for small games, require all players
     # For larger games, use the percentage from config
-    from utils.config import VOTE_CONSENSUS_THRESHOLD
     if player_count <= 3:
         consensus_threshold = player_count  # Everyone must agree for small games
     else:
         consensus_threshold = max(2, int(player_count * VOTE_CONSENSUS_THRESHOLD))
     
     # Check if consensus is reached
+    event_closed = False
     if vote_count >= consensus_threshold:
         # Mark the event as closed
         await db.db.execute(
@@ -103,11 +102,17 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
             (EventStatus.CLOSED.name, game_id, event_id)
         )
         await db.db.commit()
+        event_closed = True
         
         await interaction.response.send_message(
             f"You voted for event {event_id} ({event['description']}). "
             f"Consensus reached ({vote_count}/{player_count} votes)! Event is now closed."
         )
+        
+        # Check for winners if the event was closed
+        winners = await check_for_winners(db, game_id, game["grid_size"])
+        if winners:
+            await announce_winners(interaction.channel, winners, game["title"])
     else:
         await interaction.response.send_message(
             f"You voted for event {event_id} ({event['description']}). "

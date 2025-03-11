@@ -1,3 +1,4 @@
+"""Utility for parsing CSV files for bingo games."""
 import csv
 import io
 from typing import List, Dict, Any

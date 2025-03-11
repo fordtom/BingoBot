@@ -1,7 +1,9 @@
+"""Command to initialize a new empty bingo game."""
 import discord
 from db import get_db
-from models.event import EventStatus
-from utils import get_active_game, send_error_message, DEFAULT_GRID_SIZE, EMBED_COLOR_PRIMARY
+from bingo.utils.channel_check import is_allowed_channel
+
+from bingo.models.event import EventStatus
 
 
 async def execute(interaction: discord.Interaction):
@@ -11,6 +13,10 @@ async def execute(interaction: discord.Interaction):
     Args:
         interaction: The Discord interaction that triggered the command
     """
+    # Check if command is used in the allowed channel
+    if not await is_allowed_channel(interaction):
+        return
+        
     # Defer response to give us time to process
     await interaction.response.defer(ephemeral=False)
     
@@ -20,7 +26,7 @@ async def execute(interaction: discord.Interaction):
         # Create a new game with default values
         async with db.db.execute(
             "INSERT INTO games (title, grid_size) VALUES (?, ?)",
-            (f"Game created by {interaction.user.display_name}", DEFAULT_GRID_SIZE)
+            (f"Game created by {interaction.user.display_name}", 4)  # Default grid size of 4
         ) as cursor:
             new_game_id = cursor.lastrowid
         
@@ -37,11 +43,12 @@ async def execute(interaction: discord.Interaction):
                 "• Add players with Discord mentions\n"
                 "• Upload a CSV of events or create them manually"
             ),
-            color=EMBED_COLOR_PRIMARY
+            color=discord.Color.blue()
         )
         
         # Set this as the active game if no active game exists
-        active_game = await get_active_game()
+        cursor = await db.db.execute("SELECT game_id FROM games WHERE is_active = 1")
+        active_game = await cursor.fetchone()
         
         if not active_game:
             await db.db.execute("UPDATE games SET is_active = 1 WHERE game_id = ?", (new_game_id,))
@@ -59,5 +66,24 @@ async def execute(interaction: discord.Interaction):
     except Exception as e:
         # Rollback transaction on error
         await db.db.rollback()
-        await send_error_message(interaction, f"Error creating game: {str(e)}")
+        
+        # Send error message
+        if interaction.response.is_done():
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    title="Error",
+                    description=f"Error creating game: {str(e)}",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="Error",
+                    description=f"Error creating game: {str(e)}",
+                    color=discord.Color.red()
+                ),
+                ephemeral=True
+            )
         return

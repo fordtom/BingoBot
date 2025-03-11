@@ -1,3 +1,4 @@
+"""Event model for bingo games."""
 from dataclasses import dataclass
 from enum import Enum, auto
 

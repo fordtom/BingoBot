@@ -17,7 +17,7 @@ if ALLOWED_CHANNEL_ID:
     except ValueError:
         ALLOWED_CHANNEL_ID = None
 
-async def check_channel(interaction: discord.Interaction) -> bool:
+async def is_allowed_channel(interaction: discord.Interaction) -> bool:
     """
     Check if the interaction is in the allowed channel.
     
