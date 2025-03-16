@@ -3,8 +3,12 @@ import os
 import aiosqlite
 from pathlib import Path
 
-# Use a fixed path relative to this file
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bingobot.db")
+# Use a path in the data directory if it exists, otherwise use default location
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+if os.path.exists(DATA_DIR) and os.path.isdir(DATA_DIR):
+    DATABASE_PATH = os.path.join(DATA_DIR, "bingobot.db")
+else:
+    DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bingobot.db")
 
 class Database:
     """Database connection manager for the BingoBot."""
