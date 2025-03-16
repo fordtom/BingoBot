@@ -1,5 +1,6 @@
 """Command to vote that an event has occurred."""
 import discord
+import math
 from db import get_db
 from bingo.utils.channel_check import is_allowed_channel
 
@@ -91,7 +92,7 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
     if player_count <= 3:
         consensus_threshold = player_count  # Everyone must agree for small games
     else:
-        consensus_threshold = max(2, int(player_count * VOTE_CONSENSUS_THRESHOLD))
+        consensus_threshold = max(2, math.ceil(player_count * VOTE_CONSENSUS_THRESHOLD))
     
     # Check if consensus is reached
     event_closed = False

@@ -1,5 +1,6 @@
 """Command to list events for a bingo game."""
 import discord
+import math
 
 from db import get_db
 from bingo.utils.channel_check import is_allowed_channel
@@ -50,7 +51,7 @@ async def execute(interaction: discord.Interaction, game_id: int = None):
     if player_count <= 3:
         consensus_threshold = player_count  # Everyone must agree for small games
     else:
-        consensus_threshold = max(2, int(player_count * VOTE_CONSENSUS_THRESHOLD))
+        consensus_threshold = max(2, math.ceil(player_count * VOTE_CONSENSUS_THRESHOLD))
     
     # Format the events list - simple but effective for Discord
     event_list = []
