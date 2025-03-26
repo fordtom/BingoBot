@@ -12,8 +12,9 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from db import get_db
-# For now, directly import the bingo module, later we'll use the plugin system
+# For now, directly import the modules, later we'll use the plugin system
 import bingo
+import ai
 
 # Configure logging
 logging.basicConfig(
@@ -62,6 +63,10 @@ async def on_ready():
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
     logger.info("Bingo commands registered")
+    
+    # Register AI commands
+    ai.setup_ai_commands(bot)
+    logger.info("AI commands registered")
     
     # Sync commands with Discord
     try:
