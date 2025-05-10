@@ -32,7 +32,8 @@ async def execute(interaction: discord.Interaction, question: str):
 
         # Extract and send the response
         ai_response = response.choices[0].message.content
-        await interaction.followup.send(ai_response)
+        formatted_response = f"Question:\n\n{question}\n\nAnswer:\n\n{ai_response}"
+        await interaction.followup.send(formatted_response)
 
         # Log the response
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
