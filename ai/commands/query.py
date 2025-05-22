@@ -9,16 +9,16 @@ logger = logging.getLogger(__name__)
 # Initialize the OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = False):
+async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
     """Execute the query command.
 
     Args:
         interaction: The Discord interaction object
         question: The question to ask the AI
-        use_web_search: Whether to use web search capability
+        use_web_search: Whether to use web search capability (default: True)
     """
     # Log the query for debugging
-    logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
+    logger.info(f"AI query from {interaction.user}: {question} (web search enabled)")
 
     await interaction.response.defer()
 
@@ -27,12 +27,8 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         request_params = {
             "input": [{"role": "user", "content": question}],
             "model": "gpt-4.1-mini",
+            "tools": [{"type": "web_search"}]  # Always enable web search
         }
-        
-        # Add web search capability if requested
-        if use_web_search:
-            request_params["tools"] = [{"type": "web_search"}]
-            await interaction.followup.send(f"{interaction.user.mention} I'm searching the web for information about: {question}")
         
         # Create a response request with GPT-4.1 Mini using the Responses API
         response = client.responses.create(**request_params)
@@ -40,12 +36,8 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         # Extract and send the response
         ai_response = response.output_text
         
-        # Format response based on whether web search was used
-        if use_web_search:
-            formatted_response = f"{interaction.user.mention} Web search results for: {question}\n\n{ai_response}"
-        else:
-            formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
-            
+        # Format response 
+        formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
         await interaction.followup.send(formatted_response)
 
         # Log the response
