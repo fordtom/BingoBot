@@ -9,6 +9,8 @@ The bot uses a modular architecture centered around the bingo game module.
 ```
 BingoBot/                # Root directory
 ├── ai/                  # AI integration module
+│   ├── commands/        # AI-specific commands
+│   └── __init__.py      # Module initialization
 ├── bingo/               # Bingo game module
 │   ├── commands/        # Bingo-specific commands
 │   ├── models/          # Bingo-specific models
@@ -29,10 +31,11 @@ BingoBot/                # Root directory
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Create a `.env` file with your Discord token and optional allowed channel ID:
+3. Create a `.env` file with your Discord token, OpenAI API key, and optional allowed channel ID:
    ```
    # .env
    DISCORD_TOKEN=your_discord_bot_token_here
+   OPENAI_API_KEY=your_openai_api_key_here
    CHANNEL=your_allowed_channel_id  # Optional
    ```
 4. Run the bot:
@@ -84,9 +87,15 @@ Event 2 description
 
 ### AI Integration
 
-BingoBot includes AI integration:
+The AI module integrates with OpenAI's Responses API using the `gpt-4.1-mini` model to provide AI-powered assistance.
 
-- `/ask <question>` - Ask the AI assistant a question
+**Command**
+
+- `/ask <question>`: Ask the AI assistant a question. The bot will defer the response, query the OpenAI API, and follow up with a formatted answer mentioning you.
+
+**Environment**
+
+Requires the `OPENAI_API_KEY` environment variable to be set (see Setup).
 
 ## Docker Support
 
