@@ -22,16 +22,14 @@ async def execute(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
 
     try:
-        # Create a completion request with GPT-4.1 Mini
-        response = client.chat.completions.create(
+        # Create a response request with GPT-4.1 Mini using the Responses API
+        response = client.responses.create(
+            input=[{"role": "user", "content": question}],
             model="gpt-4.1-mini",
-            messages=[
-                {"role": "user", "content": question}
-            ],
         )
 
         # Extract and send the response
-        ai_response = response.choices[0].message.content
+        ai_response = response.output_text
         formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
         await interaction.followup.send(formatted_response)
 
