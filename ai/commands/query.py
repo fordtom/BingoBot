@@ -2,7 +2,9 @@
 import discord
 import logging
 import os
+import json
 from openai import OpenAI
+from ..mcp_client import mcp_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +25,54 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
     await interaction.response.defer()
 
     try:
+        # Prepare tools list
+        tools = [{"type": "web_search"}]  # Web search tool
+        
+        # Add MCP filesystem tools if connected
+        if mcp_client.session:
+            try:
+                mcp_tools = mcp_client.get_openai_tools()
+                tools.extend(mcp_tools)
+                logger.info(f"Added {len(mcp_tools)} MCP tools to query")
+            except Exception as e:
+                logger.warning(f"Could not add MCP tools: {e}")
+        else:
+            logger.warning("MCP client not connected")
+        
         # Prepare request parameters
         request_params = {
             "input": [{"role": "user", "content": question}],
             "model": "gpt-4.1-mini",
-            "tools": [{"type": "web_search"}]  # Always enable web search
+            "tools": tools
         }
         
         # Create a response request with GPT-4.1 Mini using the Responses API
         response = client.responses.create(**request_params)
+
+        # Check if the response includes tool calls for MCP
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            # Process MCP tool calls
+            messages = request_params["input"].copy()
+            messages.append({"role": "assistant", "content": response.output_text, "tool_calls": response.tool_calls})
+            
+            for tool_call in response.tool_calls:
+                if tool_call.function.name in [tool.name for tool in mcp_client.tools]:
+                    # Parse arguments
+                    args = json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments
+                    
+                    # Call MCP tool
+                    result = await mcp_client.call_tool(tool_call.function.name, args)
+                    
+                    # Add tool result to messages
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result)
+                    })
+            
+            # Get final response with tool results
+            request_params["input"] = messages
+            response = client.responses.create(**request_params)
 
         # Extract and send the response
         ai_response = response.output_text

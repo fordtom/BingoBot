@@ -15,6 +15,7 @@ from db import get_db
 # For now, directly import the modules, later we'll use the plugin system
 import bingo
 import ai
+from ai.mcp_client import mcp_client
 
 # Configure logging
 logging.basicConfig(
@@ -60,6 +61,16 @@ async def on_ready():
     # Initialize the database
     await get_db()
     
+    # Connect to MCP filesystem server
+    try:
+        connected = await mcp_client.connect()
+        if connected:
+            logger.info("Connected to MCP filesystem server")
+        else:
+            logger.warning("Failed to connect to MCP filesystem server")
+    except Exception as e:
+        logger.error(f"Error connecting to MCP server: {e}")
+    
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
     logger.info("Bingo commands registered")
@@ -86,9 +97,19 @@ async def on_command_error(ctx, error):
     await ctx.send(f"An error occurred: {error}")
 
 
+async def cleanup():
+    """Cleanup function to disconnect from services."""
+    if mcp_client.session:
+        await mcp_client.disconnect()
+        logger.info("Disconnected from MCP server")
+
 if __name__ == "__main__":
     try:
         bot.run(TOKEN)
     except Exception as e:
         logger.critical(f"Failed to start bot: {e}")
         sys.exit(1)
+    finally:
+        # Run cleanup
+        import asyncio
+        asyncio.run(cleanup())
