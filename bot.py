@@ -18,15 +18,17 @@ import ai
 from ai.mcp_client import mcp_client
 
 # Configure logging
+log_file = "/app/data/bot-debug.log" if os.path.exists("/app/data") else "bot.log"
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("bot.log")
+        logging.FileHandler(log_file)
     ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to {log_file}")
 
 # Load environment variables
 load_dotenv()

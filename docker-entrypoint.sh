@@ -30,4 +30,4 @@ trap cleanup EXIT INT TERM
 
 # Start the Python bot
 echo "Starting Discord bot..."
-exec python bot.py
+exec python -u bot.py > /app/data/bot.log 2>&1
