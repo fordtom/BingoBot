@@ -2,8 +2,10 @@
 import asyncio
 import json
 import logging
+from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
-from mcp import StdioServerParameters, create_stdio_client
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 logger = logging.getLogger(__name__)
 
@@ -11,21 +13,37 @@ class MCPFilesystemClient:
    """Client for interacting with the MCP filesystem server."""
    
    def __init__(self):
-      self.client = None
       self.session = None
       self.tools = []
+      self.exit_stack = None
+      self.stdio = None
+      self.write = None
       
    async def connect(self):
       """Connect to the MCP filesystem server."""
       try:
-         # Create client connection to the MCP server
+         # Initialize exit stack
+         self.exit_stack = AsyncExitStack()
+         
+         # Create server parameters
          server_params = StdioServerParameters(
             command="npx",
             args=["@modelcontextprotocol/server-filesystem", "/nas"]
          )
          
-         self.client = create_stdio_client("filesystem-server", "1.0")
-         self.session = await self.client.connect(server_params)
+         # Create stdio transport
+         stdio_transport = await self.exit_stack.enter_async_context(
+            stdio_client(server_params)
+         )
+         
+         # Set up session
+         self.stdio, self.write = stdio_transport
+         self.session = await self.exit_stack.enter_async_context(
+            ClientSession(self.stdio, self.write)
+         )
+         
+         # Initialize the session
+         await self.session.initialize()
          
          # Get available tools from the server
          tools_response = await self.session.list_tools()
@@ -40,10 +58,12 @@ class MCPFilesystemClient:
          
    async def disconnect(self):
       """Disconnect from the MCP server."""
-      if self.session:
-         await self.session.close()
+      if self.exit_stack:
+         await self.exit_stack.aclose()
+         self.exit_stack = None
          self.session = None
-         self.client = None
+         self.stdio = None
+         self.write = None
          
    def get_openai_tools(self) -> List[Dict[str, Any]]:
       """Convert MCP tools to OpenAI-compatible format."""
