@@ -26,7 +26,11 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
 
     try:
         # Prepare tools list
-        tools = [{"type": "web_search"}]  # Web search tool
+        tools = []
+        
+        # Add web search tool if enabled
+        if use_web_search:
+            tools.append({"type": "web_search"})
         
         # Add MCP filesystem tools if connected
         if mcp_client.session:

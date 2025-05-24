@@ -70,12 +70,23 @@ class MCPFilesystemClient:
       openai_tools = []
       
       for tool in self.tools:
+         # Skip tools with missing required fields
+         if not hasattr(tool, 'name') or not tool.name:
+            logger.warning(f"Skipping tool with missing name: {tool}")
+            continue
+            
+         if not hasattr(tool, 'description'):
+            logger.warning(f"Tool {tool.name} missing description, using default")
+            description = f"Tool: {tool.name}"
+         else:
+            description = tool.description
+            
          # Convert MCP tool format to OpenAI function format
          openai_tool = {
             "type": "function",
             "function": {
                "name": tool.name,
-               "description": tool.description,
+               "description": description,
                "parameters": tool.inputSchema if hasattr(tool, 'inputSchema') else {
                   "type": "object",
                   "properties": {},
