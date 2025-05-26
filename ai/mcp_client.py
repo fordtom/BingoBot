@@ -28,8 +28,9 @@ class MCPFilesystemClient:
          logger.info("Starting MCP filesystem server...")
          
          # Start the MCP server as a subprocess
+         # Using npx with -y flag to automatically install if needed
          self.process = await asyncio.create_subprocess_exec(
-            'npx', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data',
+            'npx', '-y', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data',
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
