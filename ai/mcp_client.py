@@ -25,15 +25,9 @@ class MCPFilesystemClient:
          # Initialize exit stack
          self.exit_stack = AsyncExitStack()
          
-         # Create server parameters
-         server_params = StdioServerParameters(
-            command="npx",
-            args=["@modelcontextprotocol/server-filesystem", "/nas"]
-         )
-         
-         # Create stdio transport
+         # Create stdio transport for the existing server
          stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client(server_params)
+            stdio_client()  # Connect to existing server
          )
          
          # Set up session
@@ -48,6 +42,7 @@ class MCPFilesystemClient:
          # Get available tools from the server
          tools_response = await self.session.list_tools()
          self.tools = tools_response.tools
+         logger.info(f"Connected to MCP server. Available tools: {[t.name for t in self.tools]}")
          
          logger.info(f"Connected to MCP filesystem server with {len(self.tools)} tools")
          return True

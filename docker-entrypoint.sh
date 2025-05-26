@@ -1,9 +1,21 @@
 #!/bin/bash
 set -e
 
+# Debug: Show directory structure and permissions
+echo "=== Debug: Current directory structure ==="
+ls -la /
+
+echo -e "\n=== Debug: NAS mount point ==="
+ls -la /nas 2>&1 || echo "Failed to list /nas"
+
+echo -e "\n=== Debug: App data directory ==="
+ls -la /app/data
+
 # Start the MCP filesystem server in the background
-echo "Starting MCP filesystem server..."
-npx @modelcontextprotocol/server-filesystem /nas > /app/data/mcp-server.log 2>&1 &
+echo -e "\n=== Starting MCP filesystem server ==="
+echo "Serving directories: /nas (read-only), /app/data (read-write)"
+
+npx @modelcontextprotocol/server-filesystem /app/nas /app/data > /app/data/mcp-server.log 2>&1 &
 MCP_PID=$!
 
 # Give the MCP server time to start
@@ -12,6 +24,8 @@ sleep 2
 # Check if MCP server is running
 if ! kill -0 $MCP_PID 2>/dev/null; then
     echo "MCP server failed to start. Check /app/data/mcp-server.log for details."
+    echo "=== MCP Server Log ==="
+    cat /app/data/mcp-server.log || echo "No log file found"
     exit 1
 fi
 
