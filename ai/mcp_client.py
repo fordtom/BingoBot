@@ -25,26 +25,26 @@ class MCPFilesystemClient:
          # Initialize exit stack
          self.exit_stack = AsyncExitStack()
          
-         logger.info("Creating stdio transport for MCP server...")
-         
-         # First create the stdio transport
-         stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client()
-         )
-         
-         # Get the stdio streams
-         self.stdio, self.write = stdio_transport
+         logger.info("Starting MCP filesystem server...")
          
          # Start the MCP server as a subprocess
          self.process = await asyncio.create_subprocess_exec(
-            'npx', '@modelcontextprotocol/server-filesystem', '/app/nas', '/app/data',
+            'npx', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data',
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
          )
          
-         # Set up session
+         logger.info("Creating stdio transport for MCP server...")
+         
+         # Create stdio transport using the subprocess's pipes
+         stdio_transport = await self.exit_stack.enter_async_context(
+            stdio_client(self.process)
+         )
+         
+         # Get the stdio streams
          self.stdio, self.write = stdio_transport
+         
          logger.info("Creating MCP client session...")
          self.session = await self.exit_stack.enter_async_context(
             ClientSession(self.stdio, self.write)
