@@ -27,20 +27,18 @@ class MCPFilesystemClient:
          
          logger.info("Starting MCP filesystem server...")
          
-         # Start the MCP server as a subprocess
-         # Using npx with -y flag to automatically install if needed
-         self.process = await asyncio.create_subprocess_exec(
-            'npx', '-y', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data',
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+         # Create server parameters for the filesystem server
+         server_params = StdioServerParameters(
+            command='npx',
+            args=['-y', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data'],
+            env=None
          )
          
          logger.info("Creating stdio transport for MCP server...")
          
-         # Create stdio transport using the subprocess's pipes
+         # Create stdio transport using server parameters
          stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client(self.process)
+            stdio_client(server_params)
          )
          
          # Get the stdio streams
@@ -73,26 +71,6 @@ class MCPFilesystemClient:
          
    async def close(self):
       """Close the MCP filesystem server connection and cleanup resources."""
-      # Clean up the MCP server process if it exists
-      if hasattr(self, 'process') and self.process:
-         try:
-            # Try to terminate gracefully first
-            self.process.terminate()
-            try:
-               await asyncio.wait_for(self.process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
-               # If process didn't terminate, force kill it
-               if self.process.returncode is None:  # Process is still running
-                  self.process.kill()
-                  await self.process.wait()
-         except ProcessLookupError:
-            # Process already terminated
-            pass
-         except Exception as e:
-            logger.warning(f"Error while stopping MCP process: {e}")
-         finally:
-            self.process = None
-      
       # Clean up the MCP client session
       if self.exit_stack:
          try:
