@@ -26,13 +26,21 @@ class MCPFilesystemClient:
          self.exit_stack = AsyncExitStack()
          
          logger.info("Creating stdio transport for MCP server...")
+         
+         # First create the stdio transport
          stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client(
-               server_params=StdioServerParameters(
-                  command="npx",
-                  args=["@modelcontextprotocol/server-filesystem", "/app/nas", "/app/data"]
-               )
-            )
+            stdio_client()
+         )
+         
+         # Get the stdio streams
+         self.stdio, self.write = stdio_transport
+         
+         # Start the MCP server as a subprocess
+         self.process = await asyncio.create_subprocess_exec(
+            'npx', '@modelcontextprotocol/server-filesystem', '/app/nas', '/app/data',
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
          )
          
          # Set up session
@@ -62,15 +70,46 @@ class MCPFilesystemClient:
          logger.error(f"Failed to connect to MCP filesystem server: {e}")
          return False
          
-   async def disconnect(self):
-      """Disconnect from the MCP server."""
+   async def close(self):
+      """Close the MCP filesystem server connection and cleanup resources."""
+      # Clean up the MCP server process if it exists
+      if hasattr(self, 'process') and self.process:
+         try:
+            # Try to terminate gracefully first
+            self.process.terminate()
+            try:
+               await asyncio.wait_for(self.process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+               # If process didn't terminate, force kill it
+               if self.process.returncode is None:  # Process is still running
+                  self.process.kill()
+                  await self.process.wait()
+         except ProcessLookupError:
+            # Process already terminated
+            pass
+         except Exception as e:
+            logger.warning(f"Error while stopping MCP process: {e}")
+         finally:
+            self.process = None
+      
+      # Clean up the MCP client session
       if self.exit_stack:
-         await self.exit_stack.aclose()
+         try:
+            await self.exit_stack.aclose()
+         except Exception as e:
+            logger.warning(f"Error while closing exit stack: {e}")
          self.exit_stack = None
-         self.session = None
-         self.stdio = None
-         self.write = None
-         
+      
+      # Clear all other references
+      self.session = None
+      self.tools = []
+      self.stdio = None
+      self.write = None
+      
+   async def disconnect(self):
+      """Alias for close() for backward compatibility."""
+      await self.close()
+
    def get_openai_tools(self) -> List[Dict[str, Any]]:
       """Convert MCP tools to OpenAI-compatible format."""
       openai_tools = []
