@@ -84,6 +84,7 @@ class MCPFilesystemClient:
          # Convert MCP tool format to OpenAI function format
          openai_tool = {
             "type": "function",
+            "name": tool.name,
             "function": {
                "name": tool.name,
                "description": description,
