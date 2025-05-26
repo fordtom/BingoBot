@@ -25,26 +25,37 @@ class MCPFilesystemClient:
          # Initialize exit stack
          self.exit_stack = AsyncExitStack()
          
-         # Create stdio transport for the existing server
+         logger.info("Creating stdio transport for MCP server...")
          stdio_transport = await self.exit_stack.enter_async_context(
-            stdio_client()  # Connect to existing server
+            stdio_client(
+               server_params=StdioServerParameters(
+                  command="npx",
+                  args=["@modelcontextprotocol/server-filesystem", "/app/nas", "/app/data"]
+               )
+            )
          )
          
          # Set up session
          self.stdio, self.write = stdio_transport
+         logger.info("Creating MCP client session...")
          self.session = await self.exit_stack.enter_async_context(
             ClientSession(self.stdio, self.write)
          )
          
          # Initialize the session
+         logger.info("Initializing MCP session...")
          await self.session.initialize()
          
          # Get available tools from the server
+         logger.info("Listing available tools...")
          tools_response = await self.session.list_tools()
          self.tools = tools_response.tools
-         logger.info(f"Connected to MCP server. Available tools: {[t.name for t in self.tools]}")
          
-         logger.info(f"Connected to MCP filesystem server with {len(self.tools)} tools")
+         if not self.tools:
+            logger.warning("No tools found in MCP server response")
+            return False
+            
+         logger.info(f"Connected to MCP server. Available tools: {[t.name for t in self.tools]}")
          return True
          
       except Exception as e:
