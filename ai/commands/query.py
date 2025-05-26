@@ -3,6 +3,7 @@ import discord
 import logging
 import os
 import json
+import traceback
 from openai import OpenAI
 from ..mcp_client import mcp_client
 
@@ -57,7 +58,15 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         if hasattr(response, 'tool_calls') and response.tool_calls:
             # Process MCP tool calls
             messages = request_params["input"].copy()
-            messages.append({"role": "assistant", "content": response.output_text, "tool_calls": response.tool_calls})
+            
+            # Extract the actual output text from the response structure
+            output_text = ""
+            if response.output and len(response.output) > 0:
+                message = response.output[0]
+                if hasattr(message, 'content') and len(message.content) > 0:
+                    output_text = message.content[0].text
+            
+            messages.append({"role": "assistant", "content": output_text, "tool_calls": response.tool_calls})
             
             for tool_call in response.tool_calls:
                 if tool_call.function.name in [tool.name for tool in mcp_client.tools]:
@@ -78,8 +87,14 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             request_params["input"] = messages
             response = client.responses.create(**request_params)
 
-        # Extract and send the response
-        ai_response = response.output_text
+        # Extract and send the response - Updated to handle the correct response structure
+        ai_response = ""
+        if response.output and len(response.output) > 0:
+            message = response.output[0]
+            if hasattr(message, 'content') and len(message.content) > 0:
+                ai_response = message.content[0].text
+        else:
+            ai_response = "I apologize, but I couldn't generate a response."
         
         # Format response 
         formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
@@ -90,4 +105,5 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
 
     except Exception as e:
         logger.error(f"Error querying OpenAI API: {e}")
+        logger.error(f"Full error details: {traceback.format_exc()}")
         await interaction.followup.send("Sorry, I encountered an error while processing your request.")
