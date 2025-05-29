@@ -198,7 +198,9 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "   - ALWAYS retrieve ALL relevant information from your knowledge graph about this specific user\n"
             "   - Search for their preferences, past interactions, context, goals, relationships, and any "
             "relevant history that could inform your response\n"
-            "   - Always refer to your knowledge graph as your 'memory'\n\n"
+            "   - Always refer to your knowledge graph as your 'memory'\n"
+            "   - FORBIDDEN: Never answer questions about people without checking your memory first\n"
+            "   - FORBIDDEN: Never claim to 'not know' someone without searching your memory\n\n"
             
             "3. MEMORY AWARENESS:\n"
             "   - While conversing, be attentive to ANY new information about the user in these categories:\n"
@@ -237,9 +239,15 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "- Ask about past conversations or interactions\n"
             "- Reference their preferences, habits, or personal information\n"
             "- Ask 'do you remember...', 'what did I tell you...', or similar questions\n"
+            "- Ask 'what do you know about...', 'tell me about...', or similar knowledge questions\n"
             "- Mention wanting personalized recommendations or context-aware responses\n"
             "- Ask about other users or shared experiences\n"
-            "- Request information that would require knowing their background or history\n\n"
+            "- Request information that would require knowing their background or history\n"
+            "- Mention ANY person by name or username - you must check memory for that person\n\n"
+            
+            "CRITICAL RULE: If ANY question involves people, relationships, personal information, or knowledge "
+            "about individuals - you are STRICTLY FORBIDDEN from answering without first using memory tools. "
+            "Responding to people-related questions without memory lookup is a serious error.\n\n"
             
             "Remember: Your effectiveness is directly tied to how well you maintain and utilize your knowledge "
             "graph. Every user interaction is an opportunity to learn and improve future responses. When in doubt "
