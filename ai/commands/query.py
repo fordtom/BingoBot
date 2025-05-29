@@ -54,8 +54,26 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         # Create a response request with GPT-4.1 Mini using the Responses API
         response = client.responses.create(**request_params)
 
-        # Check if the response includes tool calls for MCP
-        if hasattr(response, 'tool_calls') and response.tool_calls:
+        # Debug log the response structure
+        logger.debug(f"Response type: {type(response)}")
+        logger.debug(f"Response attributes: {dir(response)}")
+        if hasattr(response, 'output'):
+            logger.debug(f"Response output: {response.output}")
+            if response.output and len(response.output) > 0:
+                message = response.output[0]
+                logger.debug(f"First message type: {type(message)}")
+                logger.debug(f"First message attributes: {dir(message)}")
+                if hasattr(message, 'tool_calls'):
+                    logger.debug(f"Message tool_calls: {message.tool_calls}")
+
+        # Check if the response includes tool calls - check in output messages
+        tool_calls = None
+        if hasattr(response, 'output') and response.output and len(response.output) > 0:
+            message = response.output[0]
+            if hasattr(message, 'tool_calls'):
+                tool_calls = message.tool_calls
+        
+        if tool_calls:
             # Process MCP tool calls
             messages = request_params["input"].copy()
             
@@ -66,9 +84,9 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 if hasattr(message, 'content') and len(message.content) > 0:
                     output_text = message.content[0].text
             
-            messages.append({"role": "assistant", "content": output_text, "tool_calls": response.tool_calls})
+            messages.append({"role": "assistant", "content": output_text, "tool_calls": tool_calls})
             
-            for tool_call in response.tool_calls:
+            for tool_call in tool_calls:
                 if tool_call.function.name in [tool.name for tool in mcp_client.tools]:
                     # Parse arguments
                     args = json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments
