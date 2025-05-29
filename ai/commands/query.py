@@ -29,22 +29,27 @@ def parse_user_context(interaction: discord.Interaction, question: str) -> str:
     # Find and replace Discord mentions with actual usernames
     enhanced_question = question
     mention_pattern = r'<@!?(\d+)>'
-    mentions = re.findall(mention_pattern, question)
     
-    if mentions:
-        # Get the guild to look up users
+    def replace_mention(match):
+        user_id = match.group(1)
         guild = interaction.guild
         if guild:
-            for user_id in mentions:
-                try:
-                    mentioned_member = guild.get_member(int(user_id))
-                    if mentioned_member:
-                        # Replace the mention with the actual username
-                        mention_text = f"<@{user_id}>" if f"<@{user_id}>" in question else f"<@!{user_id}>"
-                        enhanced_question = enhanced_question.replace(mention_text, f"@{mentioned_member.name}")
-                        logger.debug(f"Replaced mention {mention_text} with @{mentioned_member.name}")
-                except Exception as e:
-                    logger.warning(f"Could not resolve user mention {user_id}: {e}")
+            try:
+                mentioned_member = guild.get_member(int(user_id))
+                if mentioned_member:
+                    logger.debug(f"Replaced mention {match.group(0)} with {mentioned_member.name}")
+                    return f"{mentioned_member.name}"
+                else:
+                    logger.warning(f"Could not find member with ID {user_id}")
+                    return match.group(0)  # Return original if user not found
+            except Exception as e:
+                logger.warning(f"Could not resolve user mention {user_id}: {e}")
+                return match.group(0)  # Return original on error
+        else:
+            logger.warning("No guild available for mention resolution")
+            return match.group(0)
+    
+    enhanced_question = re.sub(mention_pattern, replace_mention, enhanced_question)
     
     # Prepend the asking user context
     enhanced_question = f"Asked by: {asking_username}\n\n{enhanced_question}"
