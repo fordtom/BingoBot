@@ -81,57 +81,47 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             elif hasattr(first_item, "tool_calls") and first_item.tool_calls:
                 tool_calls.extend(first_item.tool_calls)
         
+
         if tool_calls:
-            # Process MCP tool calls
+            # Start a new message list beginning with the original user prompt
             messages = request_params["input"].copy()
-            
-            # Extract the actual output text from the response structure
-            output_text = ""
-            if response.output:
-                message = response.output[0]
-                # Pure function‑call items never carry free text
-                if getattr(message, "type", None) != "function_call" and \
-                   hasattr(message, "content") and message.content:
-                    output_text = message.content[0].text
-            
+
             for tool_call in tool_calls:
-                # Normalise fields for the two possible object shapes
-                if hasattr(tool_call, "function"):          # classic message‑embedded call
+                # Normalise shapes
+                if hasattr(tool_call, "function"):
                     tool_name = tool_call.function.name
                     call_id = tool_call.id
                     arguments_raw = tool_call.function.arguments
-                else:                                       # Responses API direct call object
+                else:
                     tool_name = tool_call.name
                     call_id = tool_call.id
                     arguments_raw = tool_call.arguments
 
                 args = json.loads(arguments_raw) if isinstance(arguments_raw, str) else arguments_raw
 
+                # 1️⃣  Append the original function‑call object
                 messages.append({
-                    "role": "assistant",
-                    "content": "",            # required even when the assistant only invokes a tool
-                    "tool_calls": [{
-                        "id": call_id,
-                        "type": "function",
-                        "function": {
-                            "name": tool_name,
-                            "arguments": json.dumps(args)
-                        }
-                    }]
+                    "type": "function_call",
+                    "id": call_id,
+                    "name": tool_name,
+                    "arguments": json.dumps(args)
                 })
 
+                # 2️⃣  Execute the tool if we have it
                 if tool_name in [tool.name for tool in mcp_client.tools]:
-                    # Call MCP tool
                     result = await mcp_client.call_tool(tool_name, args)
-                    
-                    # Add tool result to messages
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": call_id,
-                        "content": json.dumps(result)
-                    })
-            
-            # Get final response with tool results
+                else:
+                    result = {"error": f"Unknown tool '{tool_name}'"}
+
+                # 3️⃣  Append the function‑response object
+                messages.append({
+                    "type": "function_response",
+                    "id": call_id,
+                    "name": tool_name,
+                    "content": json.dumps(result)
+                })
+
+            # Ask the model again with the tool results
             request_params["input"] = messages
             response = client.responses.create(**request_params)
 
