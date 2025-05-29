@@ -18,7 +18,7 @@ import ai
 from ai.mcp_client import mcp_client
 
 # Configure logging
-log_file = "/app/data/bot-debug.log" if os.path.exists("/app/data") else "bot.log"
+log_file = "/data/bot-debug.log" if os.path.exists("/data") else "bot.log"
 logging.basicConfig(
     level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

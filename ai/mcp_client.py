@@ -84,7 +84,7 @@ class MCPClient:
          # Create server parameters for the filesystem server
          filesystem_params = StdioServerParameters(
             command='npx',
-            args=['-y', '@modelcontextprotocol/server-filesystem', '/nas', '/app/data'],
+            args=['-y', '@modelcontextprotocol/server-filesystem', '/data'],
             env=None
          )
          
@@ -119,8 +119,8 @@ class MCPClient:
       try:
          logger.info("Starting MCP memory server...")
          
-         # Set memory file path - use default location in app data
-         memory_file_path = '/app/data/memory.json'
+         # Set memory file path - use data directory
+         memory_file_path = '/data/memory.json'
          
          # Create server parameters for the memory server with explicit environment
          memory_env = os.environ.copy()

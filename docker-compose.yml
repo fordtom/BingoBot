@@ -6,7 +6,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
-      - /mnt/nas/1.Users/Raspi:/nas
+      - /mnt/nas/1.Users/Raspi:/data
     # The following is optional: if you want to see logs in real-time
     tty: true
