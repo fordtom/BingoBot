@@ -45,7 +45,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         
         # Create response with simplified parameters
         response = client.responses.create(
-            model="gpt-4.1-mini",  # Correct model name
+            model="gpt-4.1-mini",
             input=[{"role": "user", "content": question}],
             tools=tools
         )
@@ -103,15 +103,29 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                     tools=tools
                 )
         
-        # Extract final response content
+        # Extract final response content with debug logging
         ai_response = ""
+        logger.debug(f"Response output length: {len(response.output) if response.output else 0}")
+        
         if response.output and len(response.output) > 0:
+            logger.debug(f"Response output items: {[type(item).__name__ for item in response.output]}")
+            
             # Get the final assistant message
-            for item in reversed(response.output):
+            for i, item in enumerate(reversed(response.output)):
+                logger.debug(f"Item {i}: type={type(item).__name__}, hasattr role={hasattr(item, 'role')}")
+                if hasattr(item, 'role'):
+                    logger.debug(f"Item {i} role: {item.role}")
+                    
                 if hasattr(item, 'role') and item.role == 'assistant':
+                    logger.debug(f"Found assistant message: content={hasattr(item, 'content')}")
                     if hasattr(item, 'content') and item.content:
+                        logger.debug(f"Content type: {type(item.content)}, content: {item.content}")
                         if isinstance(item.content, list) and len(item.content) > 0:
-                            ai_response = item.content[0].text
+                            logger.debug(f"Content[0] type: {type(item.content[0])}")
+                            if hasattr(item.content[0], 'text'):
+                                ai_response = item.content[0].text
+                            else:
+                                ai_response = str(item.content[0])
                         elif isinstance(item.content, str):
                             ai_response = item.content
                     break
