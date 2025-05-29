@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Initialize the OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-def parse_user_context(interaction: discord.Interaction, question: str) -> str:
+async def parse_user_context(interaction: discord.Interaction, question: str) -> str:
     """Parse user context and normalize mentions in the question.
     
     Args:
@@ -30,31 +30,105 @@ def parse_user_context(interaction: discord.Interaction, question: str) -> str:
     enhanced_question = question
     mention_pattern = r'<@!?(\d+)>'
     
-    def replace_mention(match):
+    # Process mentions and replace with usernames
+    mentions = re.finditer(mention_pattern, enhanced_question)
+    mention_replacements = {}
+    
+    for match in mentions:
         user_id = match.group(1)
         guild = interaction.guild
         if guild:
             try:
+                # First try cached member lookup
                 mentioned_member = guild.get_member(int(user_id))
+                
+                # If not cached, try fetching from Discord API
+                if not mentioned_member:
+                    try:
+                        mentioned_member = await guild.fetch_member(int(user_id))
+                    except discord.NotFound:
+                        logger.warning(f"Member with ID {user_id} not found in guild")
+                        continue
+                    except discord.HTTPException as e:
+                        logger.warning(f"HTTP error fetching member {user_id}: {e}")
+                        continue
+                
                 if mentioned_member:
-                    logger.debug(f"Replaced mention {match.group(0)} with {mentioned_member.name}")
-                    return f"{mentioned_member.name}"
+                    logger.debug(f"Will replace mention {match.group(0)} with {mentioned_member.name}")
+                    mention_replacements[match.group(0)] = mentioned_member.name
                 else:
                     logger.warning(f"Could not find member with ID {user_id}")
-                    return match.group(0)  # Return original if user not found
+            except ValueError as e:
+                logger.warning(f"Invalid user ID format {user_id}: {e}")
             except Exception as e:
                 logger.warning(f"Could not resolve user mention {user_id}: {e}")
-                return match.group(0)  # Return original on error
         else:
             logger.warning("No guild available for mention resolution")
-            return match.group(0)
     
-    enhanced_question = re.sub(mention_pattern, replace_mention, enhanced_question)
+    # Apply all replacements
+    for mention, username in mention_replacements.items():
+        enhanced_question = enhanced_question.replace(mention, username)
     
     # Prepend the asking user context
     enhanced_question = f"Asked by: {asking_username}\n\n{enhanced_question}"
     
     return enhanced_question
+
+async def restore_mentions_in_response(interaction: discord.Interaction, response: str) -> str:
+    """Convert usernames back to Discord mentions in AI response.
+    
+    Args:
+        interaction: The Discord interaction object
+        response: The AI response string
+        
+    Returns:
+        str: Response with usernames converted back to mentions
+    """
+    guild = interaction.guild
+    if not guild:
+        return response
+    
+    # Pattern to find username references in the response
+    # Look for patterns like "@username" or "username" when surrounded by word boundaries
+    modified_response = response
+    
+    # Get all guild members for lookup
+    try:
+        # Try to get cached members first
+        members = guild.members
+        
+        # If we don't have many cached members, fetch them
+        if len(members) < 10:  # Arbitrary threshold
+            members = [member async for member in guild.fetch_members(limit=None)]
+    except Exception as e:
+        logger.warning(f"Could not fetch guild members: {e}")
+        return response
+    
+    # Create a mapping of usernames to member objects
+    username_to_member = {member.name.lower(): member for member in members}
+    
+    # Also include display names
+    for member in members:
+        if member.display_name != member.name:
+            username_to_member[member.display_name.lower()] = member
+    
+    # Look for username patterns in the response
+    # This is a simple approach - look for @username patterns
+    at_mention_pattern = r'@([a-zA-Z0-9_]+)'
+    
+    def replace_at_mention(match):
+        username = match.group(1).lower()
+        if username in username_to_member:
+            member = username_to_member[username]
+            logger.debug(f"Converting @{username} to mention for {member.name}")
+            return member.mention
+        return match.group(0)  # Return original if not found
+    
+    modified_response = re.sub(at_mention_pattern, replace_at_mention, modified_response)
+    
+    # Apply @username replacements
+    
+    return modified_response
 
 async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
     """Execute the query command.
@@ -65,7 +139,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         use_web_search: Whether to use web search capability (default: True)
     """
     # Parse user context and enhance the question
-    enhanced_question = parse_user_context(interaction, question)
+    enhanced_question = await parse_user_context(interaction, question)
     
     logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
     await interaction.response.defer()
@@ -208,8 +282,11 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         if not ai_response:
             ai_response = "I apologize, but I couldn't generate a response."
         
+        # Convert usernames back to mentions in the AI response
+        ai_response_with_mentions = await restore_mentions_in_response(interaction, ai_response)
+        
         # Format and send response
-        formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
+        formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response_with_mentions}"
         await interaction.followup.send(formatted_response)
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
 
