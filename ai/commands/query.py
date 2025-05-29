@@ -52,7 +52,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         )
         
         response = client.responses.create(
-            model="o4-mini",
+            model="gpt-4.1-mini",
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": question}
@@ -105,7 +105,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 
                 # Get next response with tool results
                 response = client.responses.create(
-                    model="o4-mini",
+                    model="gpt-4.1-mini",
                     input=messages,
                     tools=tools
                 )
