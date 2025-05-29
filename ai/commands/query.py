@@ -45,7 +45,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         
         # Create response with simplified parameters
         response = client.responses.create(
-            model="gpt-4.1-mini",
+            model="o4-mini",
             input=[{"role": "user", "content": question}],
             tools=tools
         )
@@ -92,7 +92,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 
                 # Get next response with tool results
                 response = client.responses.create(
-                    model="gpt-4.1-mini",
+                    model="o4-mini",
                     input=messages,
                     tools=tools
                 )
