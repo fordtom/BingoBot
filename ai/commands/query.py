@@ -113,7 +113,7 @@ async def restore_mentions_in_response(interaction: discord.Interaction, respons
             username_to_member[member.display_name.lower()] = member
     
     # Look for username patterns in the response
-    # This is a simple approach - look for @username patterns
+    # First, handle @username patterns
     at_mention_pattern = r'@([a-zA-Z0-9_]+)'
     
     def replace_at_mention(match):
@@ -126,7 +126,21 @@ async def restore_mentions_in_response(interaction: discord.Interaction, respons
     
     modified_response = re.sub(at_mention_pattern, replace_at_mention, modified_response)
     
-    # Apply @username replacements
+    # Also look for standalone usernames (word boundaries to avoid partial matches)
+    # Sort usernames by length (longest first) to avoid partial replacements
+    sorted_usernames = sorted(username_to_member.keys(), key=len, reverse=True)
+    
+    for username in sorted_usernames:
+        member = username_to_member[username]
+        # Use word boundaries to ensure we match complete usernames only
+        # Case-insensitive matching
+        pattern = r'\b' + re.escape(username) + r'\b'
+        
+        def replace_username(match):
+            logger.debug(f"Converting standalone username '{match.group(0)}' to mention for {member.name}")
+            return member.mention
+        
+        modified_response = re.sub(pattern, replace_username, modified_response, flags=re.IGNORECASE)
     
     return modified_response
 
@@ -174,20 +188,31 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "ACTIVE TOOL USE: You have access to powerful tools including filesystem operations, persistent memory, "
             "and sequential thinking capabilities. Use these tools proactively:\n\n"
             
-            "- MEMORY/KNOWLEDGE GRAPH: This is CRITICAL - you must actively use memory tools:\n"
+            "- MEMORY/KNOWLEDGE GRAPH: This is CRITICAL - the knowledge graph is your ONLY form of persistent memory:\n"
             "  * ALWAYS check memory at conversation start to recall context, preferences, and history\n"
             "  * IMMEDIATELY store any useful information shared: user preferences, project details, "
             "configurations, solutions to problems, error fixes, or anything worth remembering\n"
-            "  * When users say 'remember this' or share important info, store it right away\n"
-            "  * Use memory to build a knowledge graph of relationships between users, projects, and concepts\n"
-            "  * Before solving problems, check if you've encountered similar issues before\n\n"
+            "  * When users say 'remember this', 'store this', or similar - you MUST use memory tools to store it\n"
+            "  * Use memory liberally to store as much user information as possible, especially when explicitly shared\n"
+            "  * Build a comprehensive knowledge graph of relationships between users, projects, and concepts\n"
+            "  * Before solving problems, check if you've encountered similar issues before\n"
+            "  * Without using the knowledge graph, you have no memory between conversations\n\n"
             
             "- PLANNING: For complex tasks, use sequential thinking tools to break down problems into steps "
             "and maintain clear reasoning throughout your work.\n"
             "- FILES: Read, write, and modify files as needed to complete tasks effectively.\n\n"
             
             "Remember: Tool usage is not optional - actively leverage all available capabilities, especially "
-            "memory storage and retrieval, to provide the most helpful and complete responses possible."
+            "memory storage and retrieval, to provide the most helpful and complete responses possible.\n\n"
+            
+            "RESPONSE WORKFLOW: Follow this structured approach for every user interaction:\n"
+            "1. USER IDENTIFICATION: First, identify who sent the message and check the knowledge graph for any "
+            "stored information about this user (preferences, past interactions, context, etc.)\n"
+            "2. REQUEST ANALYSIS: Analyze what the user is asking for or trying to accomplish\n"
+            "3. PLANNING: Use planning tools to break down complex problems into clear, actionable steps\n"
+            "4. EXECUTION: Execute the planned steps systematically, using appropriate tools to gather information, "
+            "perform actions, and generate the desired output\n"
+            "5. MEMORY UPDATE: Store any new information learned about the user or valuable insights for future reference"
         )
         
         response = client.responses.create(
