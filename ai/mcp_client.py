@@ -121,10 +121,14 @@ class MCPClient:
          
          # Set memory file path - use data directory
          memory_file_path = '/data/memory.json'
+         logger.info(f"Setting MEMORY_FILE_PATH environment variable to: {memory_file_path}")
          
          # Create server parameters for the memory server with explicit environment
          memory_env = os.environ.copy()
          memory_env['MEMORY_FILE_PATH'] = memory_file_path
+         
+         # Log the environment variable to verify it's set
+         logger.debug(f"Memory server environment: MEMORY_FILE_PATH={memory_env.get('MEMORY_FILE_PATH')}")
          
          memory_params = StdioServerParameters(
             command='npx',
@@ -150,6 +154,9 @@ class MCPClient:
          # Initialize the session
          logger.info("Initializing memory MCP session...")
          await self.memory_session.initialize()
+         
+         # Verify the memory file path is being used correctly
+         logger.info(f"Memory MCP server initialized. Memory file should be created at: {memory_file_path}")
          
          logger.info("Successfully connected to memory MCP server")
          return True
