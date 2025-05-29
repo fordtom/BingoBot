@@ -84,7 +84,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 if hasattr(message, 'content') and len(message.content) > 0:
                     output_text = message.content[0].text
             
-            messages.append({"role": "assistant", "content": output_text, "tool_calls": tool_calls})
+            messages.append({"role": "assistant", "tool_calls": tool_calls})
             
             for tool_call in tool_calls:
                 if tool_call.function.name in [tool.name for tool in mcp_client.tools]:
