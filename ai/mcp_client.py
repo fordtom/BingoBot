@@ -119,14 +119,17 @@ class MCPClient:
       try:
          logger.info("Starting MCP memory server...")
          
-         # Set memory file path environment variable
-         memory_file_path = os.environ.get('MEMORY_FILE_PATH', '/app/data/memory.json')
+         # Set memory file path - use default location in app data
+         memory_file_path = '/app/data/memory.json'
          
-         # Create server parameters for the memory server
+         # Create server parameters for the memory server with explicit environment
+         memory_env = os.environ.copy()
+         memory_env['MEMORY_FILE_PATH'] = memory_file_path
+         
          memory_params = StdioServerParameters(
             command='npx',
             args=['-y', '@modelcontextprotocol/server-memory'],
-            env={'MEMORY_FILE_PATH': memory_file_path}
+            env=memory_env
          )
          
          logger.info(f"Creating stdio transport for memory MCP server (file: {memory_file_path})...")
