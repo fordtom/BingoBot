@@ -15,17 +15,20 @@ from db import get_db
 # For now, directly import the modules, later we'll use the plugin system
 import bingo
 import ai
+from ai.mcp_client import mcp_client
 
 # Configure logging
+log_file = "/app/data/bot-debug.log" if os.path.exists("/app/data") else "bot.log"
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("bot.log")
+        logging.FileHandler(log_file)
     ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to {log_file}")
 
 # Load environment variables
 load_dotenv()
@@ -60,6 +63,16 @@ async def on_ready():
     # Initialize the database
     await get_db()
     
+    # Connect to MCP filesystem server
+    try:
+        connected = await mcp_client.connect()
+        if connected:
+            logger.info("Connected to MCP filesystem server")
+        else:
+            logger.warning("Failed to connect to MCP filesystem server")
+    except Exception as e:
+        logger.error(f"Error connecting to MCP server: {e}")
+    
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
     logger.info("Bingo commands registered")
@@ -86,9 +99,19 @@ async def on_command_error(ctx, error):
     await ctx.send(f"An error occurred: {error}")
 
 
+async def cleanup():
+    """Cleanup function to disconnect from services."""
+    if mcp_client.session:
+        await mcp_client.disconnect()
+        logger.info("Disconnected from MCP server")
+
 if __name__ == "__main__":
     try:
         bot.run(TOKEN)
     except Exception as e:
         logger.critical(f"Failed to start bot: {e}")
         sys.exit(1)
+    finally:
+        # Run cleanup
+        import asyncio
+        asyncio.run(cleanup())
