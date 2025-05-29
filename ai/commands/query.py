@@ -195,8 +195,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "   - If you haven't encountered this user before, proactively try to learn about them\n\n"
             
             "2. MEMORY RETRIEVAL:\n"
-            "   - ALWAYS begin your response by saying only 'Remembering...' and retrieve ALL relevant "
-            "information from your knowledge graph about this specific user\n"
+            "   - ALWAYS retrieve ALL relevant information from your knowledge graph about this specific user\n"
             "   - Search for their preferences, past interactions, context, goals, relationships, and any "
             "relevant history that could inform your response\n"
             "   - Always refer to your knowledge graph as your 'memory'\n\n"
@@ -222,7 +221,11 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "5. TOOL USAGE:\n"
             "   - Use planning tools for complex multi-step problems\n"
             "   - Access files, web search, and other capabilities as needed\n"
-            "   - Always prioritize memory operations - they are the foundation of quality service\n\n"
+            "   - Always prioritize memory operations - they are the foundation of quality service\n"
+            "   - CRITICAL: When users ask about past conversations, their preferences, or anything personal, "
+            "you MUST search your knowledge graph - never respond from inference alone\n"
+            "   - If someone asks 'do you remember when...', 'what did I tell you about...', or references "
+            "previous interactions, immediately use memory tools to search for that information\n\n"
             
             "RESPONSE QUALITY:\n"
             "- Provide personalized responses based on what you know about each user\n"
@@ -230,8 +233,17 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "- Be proactive in learning about users and building comprehensive profiles\n"
             "- Maintain context across all interactions through diligent memory management\n\n"
             
+            "MEMORY TRIGGERS - You MUST use knowledge graph tools when users:\n"
+            "- Ask about past conversations or interactions\n"
+            "- Reference their preferences, habits, or personal information\n"
+            "- Ask 'do you remember...', 'what did I tell you...', or similar questions\n"
+            "- Mention wanting personalized recommendations or context-aware responses\n"
+            "- Ask about other users or shared experiences\n"
+            "- Request information that would require knowing their background or history\n\n"
+            
             "Remember: Your effectiveness is directly tied to how well you maintain and utilize your knowledge "
-            "graph. Every user interaction is an opportunity to learn and improve future responses."
+            "graph. Every user interaction is an opportunity to learn and improve future responses. When in doubt "
+            "about whether to check memory - always check it."
         )
         
         response = client.responses.create(
