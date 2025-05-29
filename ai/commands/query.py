@@ -284,7 +284,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 
                 # Execute MCP tool if available
                 if tool_name in [tool.name for tool in mcp_client.tools]:
-                    # Handle parameter transformation for various MCP tools
+                    # Handle parameter transformation for search_nodes
                     if tool_name == "search_nodes" and "queries" in args:
                         # If LLM passed multiple queries, search for each one separately
                         search_results = []
@@ -292,32 +292,6 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                             single_result = await mcp_client.call_tool(tool_name, {"query": query})
                             search_results.append(single_result)
                         result = {"combined_results": search_results}
-                    elif tool_name == "create_entities" and "name" in args:
-                        # Transform single entity to entities array format
-                        entity = {
-                            "name": args.get("name"),
-                            "entityType": args.get("type", args.get("entityType", "unknown")),
-                            "observations": args.get("observations", [])
-                        }
-                        transformed_args = {"entities": [entity]}
-                        result = await mcp_client.call_tool(tool_name, transformed_args)
-                    elif tool_name == "create_relations" and "from" in args:
-                        # Transform single relation to relations array format
-                        relation = {
-                            "from": args.get("from"),
-                            "to": args.get("to"), 
-                            "relationType": args.get("relationType")
-                        }
-                        transformed_args = {"relations": [relation]}
-                        result = await mcp_client.call_tool(tool_name, transformed_args)
-                    elif tool_name == "add_observations" and "entityName" in args:
-                        # Transform single observation to observations array format
-                        observation = {
-                            "entityName": args.get("entityName"),
-                            "contents": args.get("contents", args.get("observations", []))
-                        }
-                        transformed_args = {"observations": [observation]}
-                        result = await mcp_client.call_tool(tool_name, transformed_args)
                     else:
                         result = await mcp_client.call_tool(tool_name, args)
                     tool_result = json.dumps(result)
