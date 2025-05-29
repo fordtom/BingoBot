@@ -20,13 +20,11 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         question: The question to ask the AI
         use_web_search: Whether to use web search capability (default: True)
     """
-    # Log the query for debugging
-    logger.info(f"AI query from {interaction.user}: {question} (web search enabled)")
-
+    logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
     await interaction.response.defer()
 
     try:
-        # Prepare tools list
+        # Prepare tools list using modern MCP format
         tools = []
         
         # Add web search tool if enabled
@@ -36,6 +34,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         # Add MCP filesystem tools if connected
         if mcp_client.session:
             try:
+                # Convert MCP tools to OpenAI tools format for legacy compatibility
                 mcp_tools = mcp_client.get_openai_tools()
                 tools.extend(mcp_tools)
                 logger.info(f"Added {len(mcp_tools)} MCP tools to query")
@@ -44,100 +43,85 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         else:
             logger.warning("MCP client not connected")
         
-        # Prepare request parameters
-        request_params = {
-            "input": [{"role": "user", "content": question}],
-            "model": "gpt-4.1-mini",
-            "tools": tools
-        }
-        
-        # Create a response request with GPT-4.1 Mini using the Responses API
-        response = client.responses.create(**request_params)
+        # Create response with simplified parameters
+        response = client.responses.create(
+            model="gpt-4.1-mini",  # Correct model name
+            input=[{"role": "user", "content": question}],
+            tools=tools
+        )
 
-        # Debug log the response structure
-        logger.debug(f"Response type: {type(response)}")
-        logger.debug(f"Response attributes: {dir(response)}")
-        if hasattr(response, 'output'):
-            logger.debug(f"Response output: {response.output}")
-            if response.output and len(response.output) > 0:
-                message = response.output[0]
-                logger.debug(f"First message type: {type(message)}")
-                logger.debug(f"First message attributes: {dir(message)}")
-                if hasattr(message, 'tool_calls'):
-                    logger.debug(f"Message tool_calls: {message.tool_calls}")
-
-        # Check whether the first item in `response.output` is a function‑call object
-        # (new Responses API shape) or a normal assistant message that *contains*
-        # tool calls (classic chat shape).
-        tool_calls: list = []
-        if response.output:
+        # Handle tool calls if present
+        if response.output and len(response.output) > 0:
             first_item = response.output[0]
-
-            # Newer shape – the item itself *is* the call.
-            if getattr(first_item, "type", None) == "function_call":
-                tool_calls.append(first_item)
-
-            # Classic shape – the assistant message owns a `.tool_calls` list.
-            elif hasattr(first_item, "tool_calls") and first_item.tool_calls:
-                tool_calls.extend(first_item.tool_calls)
-        
-
-        if tool_calls:
-            # Start a new message list beginning with the original user prompt
-            messages = request_params["input"].copy()
-
-            for tool_call in tool_calls:
-                # Normalise shapes
-                if hasattr(tool_call, "function"):
+            
+            # Check if we have tool calls to execute
+            if hasattr(first_item, 'tool_calls') and first_item.tool_calls:
+                logger.info(f"Processing {len(first_item.tool_calls)} tool calls")
+                
+                # Build messages for tool execution round
+                messages = [{"role": "user", "content": question}]
+                
+                # Add assistant message with tool calls
+                messages.append({
+                    "role": "assistant", 
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        } for tc in first_item.tool_calls
+                    ]
+                })
+                
+                # Execute each tool call
+                for tool_call in first_item.tool_calls:
                     tool_name = tool_call.function.name
-                    call_id = tool_call.id
-                    arguments_raw = tool_call.function.arguments
-                else:
-                    tool_name = tool_call.name
-                    call_id = tool_call.id
-                    arguments_raw = tool_call.arguments
-
-                args = json.loads(arguments_raw) if isinstance(arguments_raw, str) else arguments_raw
-
-                # 1️⃣  Append the original function‑call object
-                messages.append({
-                    "type": "function_call",
-                    "call_id": call_id,
-                    "name": tool_name,
-                    "arguments": json.dumps(args)  # must be a JSON *string*
-                })
-
-                # 2️⃣  Execute the tool if we have it
-                if tool_name in [tool.name for tool in mcp_client.tools]:
-                    result = await mcp_client.call_tool(tool_name, args)
-                else:
-                    result = {"error": f"Unknown tool '{tool_name}'"}
-
-                # 3️⃣  Append the function‑response object
-                messages.append({
-                    "type": "function_call_output",
-                    "call_id": call_id,
-                    "output": json.dumps(result)  # Responses API expects an 'output' string
-                })
-
-            # Ask the model again with the tool results
-            request_params["input"] = messages
-            response = client.responses.create(**request_params)
-
-        # Extract and send the response - Updated to handle the correct response structure
+                    args = json.loads(tool_call.function.arguments)
+                    
+                    # Execute MCP tool if available
+                    if tool_name in [tool.name for tool in mcp_client.tools]:
+                        result = await mcp_client.call_tool(tool_name, args)
+                        tool_result = json.dumps(result)
+                    else:
+                        tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
+                    
+                    # Add tool result message
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": tool_result
+                    })
+                
+                # Get final response with tool results
+                response = client.responses.create(
+                    model="gpt-4.1-mini",
+                    input=messages,
+                    tools=tools
+                )
+        
+        # Extract final response content
         ai_response = ""
         if response.output and len(response.output) > 0:
-            message = response.output[0]
-            if hasattr(message, 'content') and len(message.content) > 0:
-                ai_response = message.content[0].text
-        else:
+            # Get the final assistant message
+            for item in reversed(response.output):
+                if hasattr(item, 'role') and item.role == 'assistant':
+                    if hasattr(item, 'content') and item.content:
+                        if isinstance(item.content, list) and len(item.content) > 0:
+                            ai_response = item.content[0].text
+                        elif isinstance(item.content, str):
+                            ai_response = item.content
+                    break
+        
+        if not ai_response:
             ai_response = "I apologize, but I couldn't generate a response."
         
-        # Format response 
+        # Format and send response
         formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
         await interaction.followup.send(formatted_response)
-
-        # Log the response
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
 
     except Exception as e:
