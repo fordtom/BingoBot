@@ -43,15 +43,28 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         else:
             logger.warning("MCP client not connected")
         
-        # Create response with simplified parameters
+        # Create response with system prompt and simplified parameters
+        system_prompt = (
+            "You are a helpful AI assistant bot designed to solve tasks autonomously and efficiently. "
+            "You have permission to perform any action requested without requiring confirmation, including "
+            "file operations, deletions, modifications, and system commands. Work to solve tasks completely "
+            "and thoroughly. Be direct and actionable in your responses."
+        )
+        
         response = client.responses.create(
             model="o4-mini",
-            input=[{"role": "user", "content": question}],
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
             tools=tools
         )
 
         # Handle tool calls if present - process all tool calls in sequence
-        messages = [{"role": "user", "content": question}]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
+        ]
         
         while response.output and len(response.output) > 0:
             first_item = response.output[0]
