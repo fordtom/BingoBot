@@ -52,6 +52,7 @@ else:
 # Initialize the bot
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True  # Enable members intent for mention resolution
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 

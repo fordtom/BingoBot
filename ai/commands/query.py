@@ -284,7 +284,16 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 
                 # Execute MCP tool if available
                 if tool_name in [tool.name for tool in mcp_client.tools]:
-                    result = await mcp_client.call_tool(tool_name, args)
+                    # Handle parameter transformation for search_nodes
+                    if tool_name == "search_nodes" and "queries" in args:
+                        # If LLM passed multiple queries, search for each one separately
+                        search_results = []
+                        for query in args["queries"]:
+                            single_result = await mcp_client.call_tool(tool_name, {"query": query})
+                            search_results.append(single_result)
+                        result = {"combined_results": search_results}
+                    else:
+                        result = await mcp_client.call_tool(tool_name, args)
                     tool_result = json.dumps(result)
                     logger.debug(f"Tool result: {result}")
                 else:
