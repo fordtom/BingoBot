@@ -2,17 +2,39 @@
 import discord
 import logging
 import re
-from typing import Dict, List
+import requests
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+def check_mcp_server(url: str, name: str) -> bool:
+   """Check if an MCP server is responding.
+   
+   Args:
+       url: The server URL to check
+       name: The server name for logging
+       
+   Returns:
+       bool: True if server is responding, False otherwise
+   """
+   try:
+       # Try basic connectivity test
+       response = requests.get(url, timeout=2)
+       logger.debug(f"{name} server at {url} responded with status {response.status_code}")
+       return True
+   except requests.exceptions.RequestException as e:
+       logger.warning(f"{name} server at {url} is not responding: {e}")
+       return False
 
 def get_mcp_tools() -> List[Dict]:
    """Get the configured MCP tools for OpenAI integration.
    
+   Only includes tools for servers that are actually responding.
+   
    Returns:
-       List[Dict]: List of MCP tool configurations
+       List[Dict]: List of MCP tool configurations for available servers
    """
-   return [
+   all_tools = [
        {
            "type": "mcp",
            "server_url": "http://localhost:3001",
@@ -40,6 +62,17 @@ def get_mcp_tools() -> List[Dict]:
            "allowed_tools": ["sequentialthinking"]
        }
    ]
+   
+   # Filter to only include responding servers
+   available_tools = []
+   for tool in all_tools:
+       if check_mcp_server(tool["server_url"], tool["server_label"]):
+           available_tools.append(tool)
+           logger.info(f"MCP server '{tool['server_label']}' is available")
+       else:
+           logger.warning(f"MCP server '{tool['server_label']}' is not available, skipping")
+   
+   return available_tools
 
 async def resolve_mentions(interaction: discord.Interaction, text: str) -> str:
    """Convert Discord mentions to usernames.

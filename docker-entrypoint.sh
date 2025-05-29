@@ -24,19 +24,23 @@ export MEMORY_FILE_PATH="/data/memory.json"
 echo "Starting memory server on port 3001..."
 mcp-remote --stdio "npx -y @modelcontextprotocol/server-memory" --port 3001 &
 MEMORY_PID=$!
+echo "Memory server started with PID: $MEMORY_PID"
 
 # Start filesystem server on port 3002  
 echo "Starting filesystem server on port 3002..."
 mcp-remote --stdio "npx -y @modelcontextprotocol/server-filesystem /data" --port 3002 &
 FILESYSTEM_PID=$!
+echo "Filesystem server started with PID: $FILESYSTEM_PID"
 
 # Start sequential thinking server on port 3003
 echo "Starting sequential thinking server on port 3003..."
 mcp-remote --stdio "npx -y @modelcontextprotocol/server-sequential-thinking" --port 3003 &
 THINKING_PID=$!
+echo "Thinking server started with PID: $THINKING_PID"
 
 # Give servers time to start
-sleep 3
+echo "Waiting for servers to initialize..."
+sleep 10
 
 # Function to cleanup background processes
 cleanup() {

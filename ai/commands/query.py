@@ -56,8 +56,12 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         
         # Add MCP tools
         try:
-            tools.extend(get_mcp_tools())
-            logger.info("Added native MCP server integrations")
+            mcp_tools = get_mcp_tools()
+            if mcp_tools:
+                tools.extend(mcp_tools)
+                logger.info(f"Added {len(mcp_tools)} MCP server integrations")
+            else:
+                logger.warning("No MCP servers are available - continuing without memory/file tools")
         except Exception as e:
             logger.warning(f"Could not configure MCP servers: {e}")
         
