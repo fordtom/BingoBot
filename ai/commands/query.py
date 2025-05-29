@@ -66,12 +66,20 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 if hasattr(message, 'tool_calls'):
                     logger.debug(f"Message tool_calls: {message.tool_calls}")
 
-        # Check if the response includes tool calls - check in output messages
-        tool_calls = None
-        if hasattr(response, 'output') and response.output and len(response.output) > 0:
-            message = response.output[0]
-            if hasattr(message, 'tool_calls'):
-                tool_calls = message.tool_calls
+        # Check whether the first item in `response.output` is a function‑call object
+        # (new Responses API shape) or a normal assistant message that *contains*
+        # tool calls (classic chat shape).
+        tool_calls: list = []
+        if response.output:
+            first_item = response.output[0]
+
+            # Newer shape – the item itself *is* the call.
+            if getattr(first_item, "type", None) == "function_call":
+                tool_calls.append(first_item)
+
+            # Classic shape – the assistant message owns a `.tool_calls` list.
+            elif hasattr(first_item, "tool_calls") and first_item.tool_calls:
+                tool_calls.extend(first_item.tool_calls)
         
         if tool_calls:
             # Process MCP tool calls
@@ -79,25 +87,46 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             
             # Extract the actual output text from the response structure
             output_text = ""
-            if response.output and len(response.output) > 0:
+            if response.output:
                 message = response.output[0]
-                if hasattr(message, 'content') and len(message.content) > 0:
+                # Pure function‑call items never carry free text
+                if getattr(message, "type", None) != "function_call" and \
+                   hasattr(message, "content") and message.content:
                     output_text = message.content[0].text
             
-            messages.append({"role": "assistant", "tool_calls": tool_calls})
-            
             for tool_call in tool_calls:
-                if tool_call.function.name in [tool.name for tool in mcp_client.tools]:
-                    # Parse arguments
-                    args = json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else tool_call.function.arguments
-                    
+                # Normalise fields for the two possible object shapes
+                if hasattr(tool_call, "function"):          # classic message‑embedded call
+                    tool_name = tool_call.function.name
+                    call_id = tool_call.id
+                    arguments_raw = tool_call.function.arguments
+                else:                                       # Responses API direct call object
+                    tool_name = tool_call.name
+                    call_id = tool_call.id
+                    arguments_raw = tool_call.arguments
+
+                args = json.loads(arguments_raw) if isinstance(arguments_raw, str) else arguments_raw
+
+                messages.append({
+                    "role": "assistant",
+                    "tool_calls": [{
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": tool_name,
+                            "arguments": json.dumps(args)
+                        }
+                    }]
+                })
+
+                if tool_name in [tool.name for tool in mcp_client.tools]:
                     # Call MCP tool
-                    result = await mcp_client.call_tool(tool_call.function.name, args)
+                    result = await mcp_client.call_tool(tool_name, args)
                     
                     # Add tool result to messages
                     messages.append({
                         "role": "tool",
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": call_id,
                         "content": json.dumps(result)
                     })
             
