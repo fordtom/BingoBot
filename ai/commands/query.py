@@ -54,47 +54,40 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         if response.output and len(response.output) > 0:
             first_item = response.output[0]
             
-            # Check if we have tool calls to execute
-            if hasattr(first_item, 'tool_calls') and first_item.tool_calls:
-                logger.info(f"Processing {len(first_item.tool_calls)} tool calls")
+            # Check if we have a function tool call
+            if type(first_item).__name__ == 'ResponseFunctionToolCall':
+                logger.info(f"Processing function tool call: {first_item.name}")
                 
-                # Build messages for tool execution round
-                messages = [{"role": "user", "content": question}]
+                # Execute the tool call
+                tool_name = first_item.name
+                args = json.loads(first_item.arguments) if isinstance(first_item.arguments, str) else first_item.arguments
                 
-                # Add assistant message with tool calls
-                messages.append({
-                    "role": "assistant", 
-                    "content": None,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        } for tc in first_item.tool_calls
-                    ]
-                })
+                logger.debug(f"Tool: {tool_name}, Args: {args}")
                 
-                # Execute each tool call
-                for tool_call in first_item.tool_calls:
-                    tool_name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
-                    
-                    # Execute MCP tool if available
-                    if tool_name in [tool.name for tool in mcp_client.tools]:
-                        result = await mcp_client.call_tool(tool_name, args)
-                        tool_result = json.dumps(result)
-                    else:
-                        tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
-                    
-                    # Add tool result message
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": tool_result
-                    })
+                # Execute MCP tool if available
+                if tool_name in [tool.name for tool in mcp_client.tools]:
+                    result = await mcp_client.call_tool(tool_name, args)
+                    tool_result = json.dumps(result)
+                    logger.debug(f"Tool result: {result}")
+                else:
+                    tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
+                    logger.warning(f"Unknown tool: {tool_name}")
+                
+                # Build messages for the follow-up request
+                messages = [
+                    {"role": "user", "content": question},
+                    {
+                        "type": "function_call",
+                        "call_id": first_item.call_id,
+                        "name": tool_name,
+                        "arguments": json.dumps(args)
+                    },
+                    {
+                        "type": "function_call_output", 
+                        "call_id": first_item.call_id,
+                        "output": tool_result
+                    }
+                ]
                 
                 # Get final response with tool results
                 response = client.responses.create(
