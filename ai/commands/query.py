@@ -109,6 +109,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
 
                 messages.append({
                     "role": "assistant",
+                    "content": "",            # required even when the assistant only invokes a tool
                     "tool_calls": [{
                         "id": call_id,
                         "type": "function",
