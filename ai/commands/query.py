@@ -102,9 +102,9 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 # 1️⃣  Append the original function‑call object
                 messages.append({
                     "type": "function_call",
-                    "id": call_id,
+                    "call_id": call_id,
                     "name": tool_name,
-                    "arguments": json.dumps(args)
+                    "arguments": args
                 })
 
                 # 2️⃣  Execute the tool if we have it
@@ -115,10 +115,10 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
 
                 # 3️⃣  Append the function‑response object
                 messages.append({
-                    "type": "function_response",
-                    "id": call_id,
+                    "type": "function_call_output",
+                    "call_id": call_id,
                     "name": tool_name,
-                    "content": json.dumps(result)
+                    "content": result
                 })
 
             # Ask the model again with the tool results
