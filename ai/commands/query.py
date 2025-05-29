@@ -1,16 +1,17 @@
-"""Query command to interact with AI."""
+"""Query command to interact with AI using OpenAI Agents SDK."""
 import discord
 import logging
 import os
-from openai import OpenAI
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
-from ai.utils import get_mcp_tools, resolve_mentions, restore_mentions, extract_ai_response
+from ai.utils import get_mcp_servers, resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# Thread pool for running synchronous Agent operations
+executor = ThreadPoolExecutor(max_workers=2)
 
 async def prepare_user_query(interaction: discord.Interaction, question: str) -> str:
     """Prepare user query with context and resolved mentions.
@@ -31,6 +32,44 @@ async def prepare_user_query(interaction: discord.Interaction, question: str) ->
     
     return enhanced_question
 
+def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
+    """Run the OpenAI Agent synchronously (for use in thread pool).
+    
+    Args:
+        enhanced_question: The prepared question
+        use_web_search: Whether to enable web search
+        
+    Returns:
+        str: The AI response
+    """
+    from openai_agents import Agent
+    
+    try:
+        # Get MCP servers
+        mcp_servers = get_mcp_servers()
+        
+        # Create agent with MCP servers
+        agent = Agent(
+            model="gpt-4.1-mini",
+            mcp_servers=mcp_servers,
+            instructions=DISCORD_BOT_SYSTEM_PROMPT
+        )
+        
+        # Run the agent
+        logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
+        result = agent.run(enhanced_question)
+        
+        # Extract the response text
+        if hasattr(result, 'text'):
+            return result.text
+        elif hasattr(result, 'content'):
+            return result.content
+        else:
+            return str(result)
+            
+    except Exception as e:
+        logger.error(f"Error running agent: {e}")
+        return f"Sorry, I encountered an error while processing your request: {str(e)}"
 
 async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
     """Execute the query command.
@@ -47,37 +86,17 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
     await interaction.response.defer()
 
     try:
-        # Prepare tools list
-        tools = []
-        
-        # Add web search tool if enabled
-        if use_web_search:
-            tools.append({"type": "web_search"})
-        
-        # Add MCP tools
-        try:
-            mcp_tools = get_mcp_tools()
-            if mcp_tools:
-                tools.extend(mcp_tools)
-                logger.info(f"Added {len(mcp_tools)} MCP server integrations")
-            else:
-                logger.warning("No MCP servers are available - continuing without memory/file tools")
-        except Exception as e:
-            logger.warning(f"Could not configure MCP servers: {e}")
-        
-        # Create response with system prompt
-        
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=[
-                {"role": "system", "content": DISCORD_BOT_SYSTEM_PROMPT},
-                {"role": "user", "content": enhanced_question}
-            ],
-            tools=tools
+        # Run the agent in a thread pool since it's synchronous
+        logger.info("Starting OpenAI Agent with MCP servers...")
+        loop = asyncio.get_event_loop()
+        ai_response = await loop.run_in_executor(
+            executor, 
+            run_agent_sync, 
+            enhanced_question, 
+            use_web_search
         )
-
-        # Extract AI response and restore mentions
-        ai_response = extract_ai_response(response)
+        
+        # Convert usernames back to mentions in the AI response
         ai_response_with_mentions = await restore_mentions(interaction, ai_response)
         
         # Format and send response
@@ -86,5 +105,5 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
 
     except Exception as e:
-        logger.error(f"Error querying OpenAI API: {e}")
+        logger.error(f"Error in AI query execution: {e}")
         await interaction.followup.send("Sorry, I encountered an error while processing your request.")

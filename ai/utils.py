@@ -2,77 +2,62 @@
 import discord
 import logging
 import re
-import requests
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-def check_mcp_server(url: str, name: str) -> bool:
-   """Check if an MCP server is responding.
+def get_mcp_servers():
+   """Get the configured local MCP servers for OpenAI Agents SDK.
    
-   Args:
-       url: The server URL to check
-       name: The server name for logging
-       
    Returns:
-       bool: True if server is responding, False otherwise
+       List: List of MCP server configurations for the Agents SDK
    """
+   from openai_agents import MCPServerStdio
+   
+   mcp_servers = []
+   
    try:
-       # Try basic connectivity test
-       response = requests.get(url, timeout=2)
-       logger.debug(f"{name} server at {url} responded with status {response.status_code}")
-       return True
-   except requests.exceptions.RequestException as e:
-       logger.warning(f"{name} server at {url} is not responding: {e}")
-       return False
-
-def get_mcp_tools() -> List[Dict]:
-   """Get the configured MCP tools for OpenAI integration.
+       # Memory server (knowledge graph) - local stdio
+       memory_server = MCPServerStdio(
+           params={
+               "command": "npx",
+               "args": ["-y", "@modelcontextprotocol/server-memory"],
+               "env": {"MEMORY_FILE_PATH": "/data/memory.json"}
+           }
+       )
+       mcp_servers.append(memory_server)
+       logger.info("Added memory MCP server")
+   except Exception as e:
+       logger.warning(f"Could not configure memory server: {e}")
    
-   Only includes tools for servers that are actually responding.
+   try:
+       # Filesystem server - local stdio
+       filesystem_server = MCPServerStdio(
+           params={
+               "command": "npx", 
+               "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+           }
+       )
+       mcp_servers.append(filesystem_server)
+       logger.info("Added filesystem MCP server")
+   except Exception as e:
+       logger.warning(f"Could not configure filesystem server: {e}")
    
-   Returns:
-       List[Dict]: List of MCP tool configurations for available servers
-   """
-   all_tools = [
-       {
-           "type": "mcp",
-           "server_url": "http://localhost:3001",
-           "server_label": "memory",
-           "allowed_tools": [
-               "search_nodes", "create_entities", "create_relations", 
-               "add_observations", "read_graph", "open_nodes", 
-               "delete_entities", "delete_observations", "delete_relations"
-           ]
-       },
-       {
-           "type": "mcp", 
-           "server_url": "http://localhost:3002",
-           "server_label": "filesystem",
-           "allowed_tools": [
-               "read_file", "write_file", "edit_file", "create_directory", 
-               "list_directory", "directory_tree", "move_file", "search_files", 
-               "get_file_info", "list_allowed_directories", "read_multiple_files"
-           ]
-       },
-       {
-           "type": "mcp",
-           "server_url": "http://localhost:3003",
-           "server_label": "thinking", 
-           "allowed_tools": ["sequentialthinking"]
-       }
-   ]
+   try:
+       # Sequential thinking server - local stdio
+       thinking_server = MCPServerStdio(
+           params={
+               "command": "npx",
+               "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+           }
+       )
+       mcp_servers.append(thinking_server)
+       logger.info("Added thinking MCP server")
+   except Exception as e:
+       logger.warning(f"Could not configure thinking server: {e}")
    
-   # Filter to only include responding servers
-   available_tools = []
-   for tool in all_tools:
-       if check_mcp_server(tool["server_url"], tool["server_label"]):
-           available_tools.append(tool)
-           logger.info(f"MCP server '{tool['server_label']}' is available")
-       else:
-           logger.warning(f"MCP server '{tool['server_label']}' is not available, skipping")
-   
-   return available_tools
+   logger.info(f"Configured {len(mcp_servers)} MCP servers")
+   return mcp_servers
 
 async def resolve_mentions(interaction: discord.Interaction, text: str) -> str:
    """Convert Discord mentions to usernames.
@@ -175,39 +160,3 @@ async def restore_mentions(interaction: discord.Interaction, response: str) -> s
        modified_response = re.sub(pattern, replace_username, modified_response, flags=re.IGNORECASE)
    
    return modified_response
-
-def extract_ai_response(response) -> str:
-   """Extract the final AI response from OpenAI response object.
-   
-   Args:
-       response: OpenAI response object
-       
-   Returns:
-       str: The extracted AI response text
-   """
-   if not response.output or len(response.output) == 0:
-       return "I apologize, but I couldn't generate a response."
-   
-   logger.debug(f"Response output length: {len(response.output)}")
-   logger.debug(f"Response output items: {[type(item).__name__ for item in response.output]}")
-   
-   # Find the final assistant message
-   for i, item in enumerate(reversed(response.output)):
-       logger.debug(f"Item {i}: type={type(item).__name__}, has role={hasattr(item, 'role')}")
-       
-       if hasattr(item, 'role') and item.role == 'assistant':
-           logger.debug(f"Found assistant message: has content={hasattr(item, 'content')}")
-           
-           if hasattr(item, 'content') and item.content:
-               logger.debug(f"Content type: {type(item.content)}")
-               
-               if isinstance(item.content, list) and len(item.content) > 0:
-                   if hasattr(item.content[0], 'text'):
-                       return item.content[0].text
-                   else:
-                       return str(item.content[0])
-               elif isinstance(item.content, str):
-                   return item.content
-               break
-   
-   return "I apologize, but I couldn't generate a response."
