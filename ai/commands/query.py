@@ -4,6 +4,7 @@ import logging
 import os
 import json
 import traceback
+import re
 from openai import OpenAI
 from ..mcp_client import mcp_client
 
@@ -11,6 +12,44 @@ logger = logging.getLogger(__name__)
 
 # Initialize the OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def parse_user_context(interaction: discord.Interaction, question: str) -> str:
+    """Parse user context and normalize mentions in the question.
+    
+    Args:
+        interaction: The Discord interaction object
+        question: The original question string
+        
+    Returns:
+        str: Enhanced question with user context and normalized mentions
+    """
+    # Get the asking user's username
+    asking_username = interaction.user.name
+    
+    # Find and replace Discord mentions with actual usernames
+    enhanced_question = question
+    mention_pattern = r'<@!?(\d+)>'
+    mentions = re.findall(mention_pattern, question)
+    
+    if mentions:
+        # Get the guild to look up users
+        guild = interaction.guild
+        if guild:
+            for user_id in mentions:
+                try:
+                    mentioned_member = guild.get_member(int(user_id))
+                    if mentioned_member:
+                        # Replace the mention with the actual username
+                        mention_text = f"<@{user_id}>" if f"<@{user_id}>" in question else f"<@!{user_id}>"
+                        enhanced_question = enhanced_question.replace(mention_text, f"@{mentioned_member.name}")
+                        logger.debug(f"Replaced mention {mention_text} with @{mentioned_member.name}")
+                except Exception as e:
+                    logger.warning(f"Could not resolve user mention {user_id}: {e}")
+    
+    # Prepend the asking user context
+    enhanced_question = f"Asked by: {asking_username}\n\n{enhanced_question}"
+    
+    return enhanced_question
 
 async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
     """Execute the query command.
@@ -20,6 +59,9 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         question: The question to ask the AI
         use_web_search: Whether to use web search capability (default: True)
     """
+    # Parse user context and enhance the question
+    enhanced_question = parse_user_context(interaction, question)
+    
     logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
     await interaction.response.defer()
 
@@ -51,22 +93,29 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             "and thoroughly. Be direct and actionable in your responses.\n\n"
             
             "ACTIVE TOOL USE: You have access to powerful tools including filesystem operations, persistent memory, "
-            "and sequential thinking capabilities. Use these tools proactively:\n"
-            "- MEMORY: Always check your memory at the start of conversations to recall previous context, "
-            "user preferences, and ongoing projects. Store important information for future reference.\n"
+            "and sequential thinking capabilities. Use these tools proactively:\n\n"
+            
+            "- MEMORY/KNOWLEDGE GRAPH: This is CRITICAL - you must actively use memory tools:\n"
+            "  * ALWAYS check memory at conversation start to recall context, preferences, and history\n"
+            "  * IMMEDIATELY store any useful information shared: user preferences, project details, "
+            "configurations, solutions to problems, error fixes, or anything worth remembering\n"
+            "  * When users say 'remember this' or share important info, store it right away\n"
+            "  * Use memory to build a knowledge graph of relationships between users, projects, and concepts\n"
+            "  * Before solving problems, check if you've encountered similar issues before\n\n"
+            
             "- PLANNING: For complex tasks, use sequential thinking tools to break down problems into steps "
             "and maintain clear reasoning throughout your work.\n"
             "- FILES: Read, write, and modify files as needed to complete tasks effectively.\n\n"
             
-            "Remember: Tool usage is not optional - actively leverage all available capabilities to provide "
-            "the most helpful and complete responses possible."
+            "Remember: Tool usage is not optional - actively leverage all available capabilities, especially "
+            "memory storage and retrieval, to provide the most helpful and complete responses possible."
         )
         
         response = client.responses.create(
             model="gpt-4.1-mini",
             input=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question}
+                {"role": "user", "content": enhanced_question}
             ],
             tools=tools
         )
@@ -74,7 +123,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         # Handle tool calls if present - process all tool calls in sequence
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question}
+            {"role": "user", "content": enhanced_question}
         ]
         
         while response.output and len(response.output) > 0:
