@@ -6,7 +6,6 @@ import json
 import traceback
 import re
 from openai import OpenAI
-from ..mcp_client import mcp_client
 
 logger = logging.getLogger(__name__)
 
@@ -166,17 +165,32 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         if use_web_search:
             tools.append({"type": "web_search"})
         
-        # Add MCP filesystem tools if connected
-        if mcp_client.session:
-            try:
-                # Convert MCP tools to OpenAI tools format for legacy compatibility
-                mcp_tools = mcp_client.get_openai_tools()
-                tools.extend(mcp_tools)
-                logger.info(f"Added {len(mcp_tools)} MCP tools to query")
-            except Exception as e:
-                logger.warning(f"Could not add MCP tools: {e}")
-        else:
-            logger.warning("MCP client not connected")
+        # Add native MCP server integrations
+        try:
+            # Memory server (knowledge graph)
+            tools.append({
+                "type": "mcp",
+                "server_url": "http://localhost:3001",
+                "allowed_tools": ["search_nodes", "create_entities", "create_relations", "add_observations", "read_graph", "open_nodes", "delete_entities", "delete_observations", "delete_relations"]
+            })
+            
+            # Filesystem server
+            tools.append({
+                "type": "mcp", 
+                "server_url": "http://localhost:3002",
+                "allowed_tools": ["read_file", "write_file", "edit_file", "create_directory", "list_directory", "directory_tree", "move_file", "search_files", "get_file_info", "list_allowed_directories", "read_multiple_files"]
+            })
+            
+            # Sequential thinking server
+            tools.append({
+                "type": "mcp",
+                "server_url": "http://localhost:3003", 
+                "allowed_tools": ["sequentialthinking"]
+            })
+            
+            logger.info("Added native MCP server integrations")
+        except Exception as e:
+            logger.warning(f"Could not configure MCP servers: {e}")
         
         # Create response with system prompt and simplified parameters
         system_prompt = (
@@ -263,67 +277,8 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             tools=tools
         )
 
-        # Handle tool calls if present - process all tool calls in sequence
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": enhanced_question}
-        ]
-        
-        while response.output and len(response.output) > 0:
-            first_item = response.output[0]
-            
-            # Check if we have a function tool call
-            if type(first_item).__name__ == 'ResponseFunctionToolCall':
-                logger.info(f"Processing function tool call: {first_item.name}")
-                
-                # Execute the tool call
-                tool_name = first_item.name
-                args = json.loads(first_item.arguments) if isinstance(first_item.arguments, str) else first_item.arguments
-                
-                logger.debug(f"Tool: {tool_name}, Args: {args}")
-                
-                # Execute MCP tool if available
-                if tool_name in [tool.name for tool in mcp_client.tools]:
-                    # Handle parameter transformation for search_nodes
-                    if tool_name == "search_nodes" and "queries" in args:
-                        # If LLM passed multiple queries, search for each one separately
-                        search_results = []
-                        for query in args["queries"]:
-                            single_result = await mcp_client.call_tool(tool_name, {"query": query})
-                            search_results.append(single_result)
-                        result = {"combined_results": search_results}
-                    else:
-                        result = await mcp_client.call_tool(tool_name, args)
-                    tool_result = json.dumps(result)
-                    logger.debug(f"Tool result: {result}")
-                else:
-                    tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
-                    logger.warning(f"Unknown tool: {tool_name}")
-                
-                # Add tool call and result to messages
-                messages.extend([
-                    {
-                        "type": "function_call",
-                        "call_id": first_item.call_id,
-                        "name": tool_name,
-                        "arguments": json.dumps(args)
-                    },
-                    {
-                        "type": "function_call_output", 
-                        "call_id": first_item.call_id,
-                        "output": tool_result
-                    }
-                ])
-                
-                # Get next response with tool results
-                response = client.responses.create(
-                    model="gpt-4.1-mini",
-                    input=messages,
-                    tools=tools
-                )
-            else:
-                # No more tool calls, break out of loop
-                break
+        # OpenAI will handle all tool calls natively with MCP integration
+        # No manual tool handling needed!
         
         # Extract final response content with debug logging
         ai_response = ""

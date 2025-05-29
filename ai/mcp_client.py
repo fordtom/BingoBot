@@ -44,6 +44,9 @@ class MCPClient:
                tools_response = await self.filesystem_session.list_tools()
                all_tools.extend(tools_response.tools)
                logger.info(f"Filesystem tools: {[t.name for t in tools_response.tools]}")
+               # Debug: Log tool schemas
+               for tool in tools_response.tools:
+                  logger.debug(f"Filesystem tool {tool.name} schema: {getattr(tool, 'inputSchema', 'No schema')}")
             except Exception as e:
                logger.warning(f"Failed to get filesystem tools: {e}")
          
@@ -52,6 +55,9 @@ class MCPClient:
                tools_response = await self.memory_session.list_tools()
                all_tools.extend(tools_response.tools)
                logger.info(f"Memory tools: {[t.name for t in tools_response.tools]}")
+               # Debug: Log tool schemas  
+               for tool in tools_response.tools:
+                  logger.debug(f"Memory tool {tool.name} schema: {getattr(tool, 'inputSchema', 'No schema')}")
             except Exception as e:
                logger.warning(f"Failed to get memory tools: {e}")
          
@@ -60,6 +66,9 @@ class MCPClient:
                tools_response = await self.sequential_thinking_session.list_tools()
                all_tools.extend(tools_response.tools)
                logger.info(f"Sequential thinking tools: {[t.name for t in tools_response.tools]}")
+               # Debug: Log tool schemas
+               for tool in tools_response.tools:
+                  logger.debug(f"Sequential thinking tool {tool.name} schema: {getattr(tool, 'inputSchema', 'No schema')}")
             except Exception as e:
                logger.warning(f"Failed to get sequential thinking tools: {e}")
          
@@ -230,7 +239,7 @@ class MCPClient:
       await self.close()
 
    def get_openai_tools(self) -> List[Dict[str, Any]]:
-      """Convert MCP tools to OpenAI-compatible format."""
+      """Convert MCP tools to OpenAI-compatible format with proper schema handling."""
       openai_tools = []
       
       for tool in self.tools:
@@ -244,6 +253,35 @@ class MCPClient:
             description = f"Tool: {tool.name}"
          else:
             description = tool.description
+         
+         # Get the input schema
+         input_schema = {}
+         if hasattr(tool, 'inputSchema') and tool.inputSchema:
+            input_schema = tool.inputSchema
+         else:
+            # Default schema for tools without defined input
+            input_schema = {
+               "type": "object",
+               "properties": {},
+               "required": []
+            }
+         
+         # Ensure schema has the required structure
+         if not isinstance(input_schema, dict):
+            logger.warning(f"Tool {tool.name} has invalid inputSchema, using default")
+            input_schema = {
+               "type": "object", 
+               "properties": {},
+               "required": []
+            }
+         
+         # Ensure required fields exist in schema
+         if "type" not in input_schema:
+            input_schema["type"] = "object"
+         if "properties" not in input_schema:
+            input_schema["properties"] = {}
+         if "required" not in input_schema:
+            input_schema["required"] = []
             
          # Convert MCP tool format to OpenAI function format
          openai_tool = {
@@ -252,13 +290,12 @@ class MCPClient:
             "function": {
                "name": tool.name,
                "description": description,
-               "parameters": tool.inputSchema if hasattr(tool, 'inputSchema') else {
-                  "type": "object",
-                  "properties": {},
-                  "required": []
-               }
+               "parameters": input_schema
             }
          }
+         
+         # Log the tool definition for debugging
+         logger.debug(f"Converted MCP tool {tool.name}: {openai_tool}")
          openai_tools.append(openai_tool)
          
       return openai_tools
