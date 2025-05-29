@@ -50,8 +50,10 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
             tools=tools
         )
 
-        # Handle tool calls if present
-        if response.output and len(response.output) > 0:
+        # Handle tool calls if present - process all tool calls in sequence
+        messages = [{"role": "user", "content": question}]
+        
+        while response.output and len(response.output) > 0:
             first_item = response.output[0]
             
             # Check if we have a function tool call
@@ -73,9 +75,8 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                     tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
                     logger.warning(f"Unknown tool: {tool_name}")
                 
-                # Build messages for the follow-up request
-                messages = [
-                    {"role": "user", "content": question},
+                # Add tool call and result to messages
+                messages.extend([
                     {
                         "type": "function_call",
                         "call_id": first_item.call_id,
@@ -87,14 +88,17 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                         "call_id": first_item.call_id,
                         "output": tool_result
                     }
-                ]
+                ])
                 
-                # Get final response with tool results
+                # Get next response with tool results
                 response = client.responses.create(
                     model="gpt-4.1-mini",
                     input=messages,
                     tools=tools
                 )
+            else:
+                # No more tool calls, break out of loop
+                break
         
         # Extract final response content with debug logging
         ai_response = ""
