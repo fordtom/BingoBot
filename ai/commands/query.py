@@ -104,7 +104,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                     "type": "function_call",
                     "call_id": call_id,
                     "name": tool_name,
-                    "arguments": args
+                    "arguments": json.dumps(args)  # must be a JSON *string*
                 })
 
                 # 2️⃣  Execute the tool if we have it
@@ -117,8 +117,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
                 messages.append({
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "name": tool_name,
-                    "content": result
+                    "output": json.dumps(result)  # Responses API expects an 'output' string
                 })
 
             # Ask the model again with the tool results
