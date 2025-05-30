@@ -2,17 +2,20 @@
 import discord
 import logging
 import re
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-def get_mcp_servers():
-   """Get the configured local MCP servers for OpenAI Agents SDK.
+def create_mcp_servers():
+   """Create the configured MCP servers for the agents package.
    
    Returns:
-       List: List of MCP server configurations for the Agents SDK
+       List: List of MCPServerStdio instances for the agents package
    """
-   from openai_agents import MCPServerStdio
+   try:
+       from agents.mcp.server import MCPServerStdio
+   except ImportError as e:
+       logger.error(f"Failed to import agents.MCPServerStdio: {e}")
+       return []
    
    mcp_servers = []
    
@@ -23,7 +26,8 @@ def get_mcp_servers():
                "command": "npx",
                "args": ["-y", "@modelcontextprotocol/server-memory"],
                "env": {"MEMORY_FILE_PATH": "/data/memory.json"}
-           }
+           },
+           cache_tools_list=True  # Cache tools for performance
        )
        mcp_servers.append(memory_server)
        logger.info("Added memory MCP server")
@@ -36,7 +40,8 @@ def get_mcp_servers():
            params={
                "command": "npx", 
                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
-           }
+           },
+           cache_tools_list=True  # Cache tools for performance
        )
        mcp_servers.append(filesystem_server)
        logger.info("Added filesystem MCP server")
@@ -49,7 +54,8 @@ def get_mcp_servers():
            params={
                "command": "npx",
                "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-           }
+           },
+           cache_tools_list=True  # Cache tools for performance
        )
        mcp_servers.append(thinking_server)
        logger.info("Added thinking MCP server")

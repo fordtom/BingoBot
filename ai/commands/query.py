@@ -1,12 +1,11 @@
-"""Query command to interact with AI using OpenAI Agents SDK."""
+"""Query command to interact with AI using the agents package."""
 import discord
 import logging
-import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
-from ai.utils import get_mcp_servers, resolve_mentions, restore_mentions
+from ai.utils import create_mcp_servers, resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ async def prepare_user_query(interaction: discord.Interaction, question: str) ->
     return enhanced_question
 
 def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
-    """Run the OpenAI Agent synchronously (for use in thread pool).
+    """Run the Agent synchronously (for use in thread pool).
     
     Args:
         enhanced_question: The prepared question
@@ -42,25 +41,32 @@ def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
     Returns:
         str: The AI response
     """
-    from openai_agents import Agent
+    try:
+        from agents import Agent, Runner
+    except ImportError as e:
+        logger.error(f"Failed to import agents: {e}")
+        return "Sorry, the AI agent system is not available."
     
     try:
-        # Get MCP servers
-        mcp_servers = get_mcp_servers()
+        # Create MCP servers
+        mcp_servers = create_mcp_servers()
         
-        # Create agent with MCP servers
+        # Create agent using the agents package
         agent = Agent(
+            name="discord-assistant",
+            instructions=DISCORD_BOT_SYSTEM_PROMPT,
             model="gpt-4.1-mini",
-            mcp_servers=mcp_servers,
-            instructions=DISCORD_BOT_SYSTEM_PROMPT
+            mcp_servers=mcp_servers
         )
         
         # Run the agent
         logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
-        result = agent.run(enhanced_question)
+        result = Runner.run_sync(agent, enhanced_question)
         
         # Extract the response text
-        if hasattr(result, 'text'):
+        if hasattr(result, 'final_output'):
+            return result.final_output
+        elif hasattr(result, 'text'):
             return result.text
         elif hasattr(result, 'content'):
             return result.content
@@ -87,7 +93,7 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
 
     try:
         # Run the agent in a thread pool since it's synchronous
-        logger.info("Starting OpenAI Agent with MCP servers...")
+        logger.info("Starting Agent with MCP servers...")
         loop = asyncio.get_event_loop()
         ai_response = await loop.run_in_executor(
             executor, 
