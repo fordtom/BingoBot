@@ -1,16 +1,11 @@
 """Query command to interact with AI using the agents package."""
 import discord
 import logging
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 
 from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
-from ai.utils import create_mcp_servers, resolve_mentions, restore_mentions
+from ai.utils import resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
-
-# Thread pool for running synchronous Agent operations
-executor = ThreadPoolExecutor(max_workers=2)
 
 async def prepare_user_query(interaction: discord.Interaction, question: str) -> str:
     """Prepare user query with context and resolved mentions.
@@ -31,8 +26,8 @@ async def prepare_user_query(interaction: discord.Interaction, question: str) ->
     
     return enhanced_question
 
-def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
-    """Run the Agent synchronously (for use in thread pool).
+async def run_agent_async(enhanced_question: str, use_web_search: bool = True) -> str:
+    """Run the Agent with proper async MCP server handling.
     
     Args:
         enhanced_question: The prepared question
@@ -43,51 +38,66 @@ def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
     """
     try:
         from agents import Agent, Runner
+        from agents.mcp.server import MCPServerStdio
     except ImportError as e:
         logger.error(f"Failed to import agents: {e}")
         return "Sorry, the AI agent system is not available."
     
     try:
-        # Create a new event loop for this thread
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        mcp_servers = []
         
-        # Create MCP servers
-        mcp_servers = create_mcp_servers()
-        
-        # Connect all MCP servers
-        for server in mcp_servers:
-            server.connect()
-        
-        # Create agent using the agents package
-        agent = Agent(
-            name="discord-assistant",
-            instructions=DISCORD_BOT_SYSTEM_PROMPT,
-            model="gpt-4.1-mini",
-            mcp_servers=mcp_servers
-        )
-        
-        # Run the agent
-        logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
-        try:
-            result = Runner.run_sync(agent, enhanced_question)
+        # Create MCP servers with async context managers
+        async with MCPServerStdio(
+            name="Memory Server",
+            params={
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-memory"],
+                "env": {"MEMORY_FILE_PATH": "/data/memory.json"}
+            },
+            cache_tools_list=True
+        ) as memory_server:
+            mcp_servers.append(memory_server)
+            logger.info("Added memory MCP server")
             
-            # Extract the response text
-            if hasattr(result, 'final_output'):
-                return result.final_output
-            else:
-                return str(result)
-        finally:
-            # Clean up MCP server connections
-            for server in mcp_servers:
-                try:
-                    server.disconnect()
-                except Exception as disconnect_error:
-                    logger.warning(f"Error disconnecting MCP server: {disconnect_error}")
+            async with MCPServerStdio(
+                name="Filesystem Server", 
+                params={
+                    "command": "npx", 
+                    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+                },
+                cache_tools_list=True
+            ) as filesystem_server:
+                mcp_servers.append(filesystem_server)
+                logger.info("Added filesystem MCP server")
+                
+                async with MCPServerStdio(
+                    name="Thinking Server",
+                    params={
+                        "command": "npx",
+                        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+                    },
+                    cache_tools_list=True
+                ) as thinking_server:
+                    mcp_servers.append(thinking_server)
+                    logger.info("Added thinking MCP server")
+                    
+                    # Create agent using the agents package
+                    agent = Agent(
+                        name="discord-assistant",
+                        instructions=DISCORD_BOT_SYSTEM_PROMPT,
+                        model="gpt-4.1-mini",
+                        mcp_servers=mcp_servers
+                    )
+                    
+                    # Run the agent
+                    logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
+                    result = await Runner.run(agent, enhanced_question)
+                    
+                    # Extract the response text
+                    if hasattr(result, 'final_output'):
+                        return result.final_output
+                    else:
+                        return str(result)
             
     except Exception as e:
         logger.error(f"Error running agent: {e}")
@@ -108,15 +118,9 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
     await interaction.response.defer()
 
     try:
-        # Run the agent in a thread pool since it's synchronous
+        # Run the agent with proper async MCP server handling
         logger.info("Starting Agent with MCP servers...")
-        loop = asyncio.get_event_loop()
-        ai_response = await loop.run_in_executor(
-            executor, 
-            run_agent_sync, 
-            enhanced_question, 
-            use_web_search
-        )
+        ai_response = await run_agent_async(enhanced_question, use_web_search)
         
         # Convert usernames back to mentions in the AI response
         ai_response_with_mentions = await restore_mentions(interaction, ai_response)
