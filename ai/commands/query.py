@@ -48,6 +48,14 @@ def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
         return "Sorry, the AI agent system is not available."
     
     try:
+        # Create a new event loop for this thread
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
         # Create MCP servers
         mcp_servers = create_mcp_servers()
         
