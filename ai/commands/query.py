@@ -59,6 +59,10 @@ def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
         # Create MCP servers
         mcp_servers = create_mcp_servers()
         
+        # Connect all MCP servers
+        for server in mcp_servers:
+            server.connect()
+        
         # Create agent using the agents package
         agent = Agent(
             name="discord-assistant",
@@ -69,17 +73,21 @@ def run_agent_sync(enhanced_question: str, use_web_search: bool = True) -> str:
         
         # Run the agent
         logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
-        result = Runner.run_sync(agent, enhanced_question)
-        
-        # Extract the response text
-        if hasattr(result, 'final_output'):
-            return result.final_output
-        elif hasattr(result, 'text'):
-            return result.text
-        elif hasattr(result, 'content'):
-            return result.content
-        else:
-            return str(result)
+        try:
+            result = Runner.run_sync(agent, enhanced_question)
+            
+            # Extract the response text
+            if hasattr(result, 'final_output'):
+                return result.final_output
+            else:
+                return str(result)
+        finally:
+            # Clean up MCP server connections
+            for server in mcp_servers:
+                try:
+                    server.disconnect()
+                except Exception as disconnect_error:
+                    logger.warning(f"Error disconnecting MCP server: {disconnect_error}")
             
     except Exception as e:
         logger.error(f"Error running agent: {e}")
