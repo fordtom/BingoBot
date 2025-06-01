@@ -1,0 +1,15 @@
+[project]
+name = "bingobot"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.19.0",
+    "discord-py>=2.3.0",
+    "openai>=1.59.8",
+    "openai-agents>=0.0.16",
+    "pillow>=11.1.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
