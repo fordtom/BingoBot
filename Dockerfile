@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Copy Python requirements and install
 COPY  pyproject.toml uv.lock ./
-RUN uv sync --system --frozen
+RUN uv sync --frozen
 
 # Install MCP servers
 RUN npm install -g @modelcontextprotocol/server-filesystem @modelcontextprotocol/server-memory @modelcontextprotocol/server-sequential-thinking
