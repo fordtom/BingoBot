@@ -15,6 +15,9 @@ WORKDIR /app
 COPY  pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
+# Activate the virtual environment by adding it to PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Install MCP servers
 RUN npm install -g @modelcontextprotocol/server-filesystem @modelcontextprotocol/server-memory @modelcontextprotocol/server-sequential-thinking
 
