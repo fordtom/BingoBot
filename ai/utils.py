@@ -2,6 +2,7 @@
 import discord
 import logging
 import re
+from agents.mcp.server import MCPServerStdio
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +12,6 @@ def create_mcp_servers():
    Returns:
        List: List of MCPServerStdio instances for the agents package
    """
-   try:
-       from agents.mcp.server import MCPServerStdio
-   except ImportError as e:
-       logger.error(f"Failed to import agents.MCPServerStdio: {e}")
-       return []
    
    mcp_servers = []
    

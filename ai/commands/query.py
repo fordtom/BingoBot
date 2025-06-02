@@ -26,7 +26,7 @@ async def prepare_user_query(interaction: discord.Interaction, question: str) ->
     
     return enhanced_question
 
-async def run_agent_async(enhanced_question: str, use_web_search: bool = True) -> str:
+async def run_agent_async(enhanced_question: str) -> str:
     """Run the Agent with proper async MCP server handling.
     
     Args:
@@ -103,7 +103,7 @@ async def run_agent_async(enhanced_question: str, use_web_search: bool = True) -
         logger.error(f"Error running agent: {e}")
         return f"Sorry, I encountered an error while processing your request: {str(e)}"
 
-async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
+async def execute(interaction: discord.Interaction, question: str):
     """Execute the query command.
 
     Args:
@@ -114,13 +114,13 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
     # Prepare user query with context and resolved mentions
     enhanced_question = await prepare_user_query(interaction, question)
     
-    logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
+    logger.info(f"AI query from {interaction.user}: {question}")
     await interaction.response.defer()
 
     try:
         # Run the agent with proper async MCP server handling
         logger.info("Starting Agent with MCP servers...")
-        ai_response = await run_agent_async(enhanced_question, use_web_search)
+        ai_response = await run_agent_async(enhanced_question)
         
         # Convert usernames back to mentions in the AI response
         ai_response_with_mentions = await restore_mentions(interaction, ai_response)

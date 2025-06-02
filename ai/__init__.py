@@ -21,7 +21,7 @@ def setup_ai_commands(bot):
     async def cmd_ask(interaction: discord.Interaction, question: str):
         """Ask a question to the AI with web search capability."""
         logger.info(f"Received /ask command from {interaction.user}")
-        await query.execute(interaction, question, use_web_search=True)
+        await query.execute(interaction, question) 
     
     # Log the command registration
     logger.info(f"Registered /ask command: {cmd_ask.name}")
