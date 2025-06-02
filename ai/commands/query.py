@@ -46,7 +46,7 @@ async def run_agent_async(enhanced_question: str) -> str:
     try:
         mcp_servers = []
         
-        # Create MCP servers with async context managers and extended timeout
+        # Create MCP servers with async context managers
         async with MCPServerStdio(
             name="Memory Server",
             params={
@@ -54,8 +54,7 @@ async def run_agent_async(enhanced_question: str) -> str:
                 "args": ["-y", "@modelcontextprotocol/server-memory"],
                 "env": {"MEMORY_FILE_PATH": "/data/memory.json"}
             },
-            cache_tools_list=True,
-            timeout=10.0  # Extend timeout to 10 seconds
+            cache_tools_list=True
         ) as memory_server:
             mcp_servers.append(memory_server)
             logger.info("Added memory MCP server")
@@ -66,8 +65,7 @@ async def run_agent_async(enhanced_question: str) -> str:
                     "command": "npx", 
                     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
                 },
-                cache_tools_list=True,
-                timeout=10.0  # Extend timeout to 10 seconds
+                cache_tools_list=True
             ) as filesystem_server:
                 mcp_servers.append(filesystem_server)
                 logger.info("Added filesystem MCP server")
@@ -78,8 +76,7 @@ async def run_agent_async(enhanced_question: str) -> str:
                         "command": "npx",
                         "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
                     },
-                    cache_tools_list=True,
-                    timeout=10.0  # Extend timeout to 10 seconds
+                    cache_tools_list=True
                 ) as thinking_server:
                     mcp_servers.append(thinking_server)
                     logger.info("Added thinking MCP server")
