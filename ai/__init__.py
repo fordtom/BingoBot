@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 def setup_ai_commands(bot):
-    """Register all AI commands with the bot."""
+    """Register all AI commands with the bot and return them."""
 
-    @bot.tree.command(name="ask", description="Ask a question to the AI (with web search capability)")
+    @bot.tree.command(name="ask", description="Ask a question to the AI")
     @app_commands.describe(question="The question you want to ask")
     async def cmd_ask(interaction: discord.Interaction, question: str):
         logger.info(f"Received /ask command from {interaction.user}")
@@ -28,4 +28,5 @@ def setup_ai_commands(bot):
 
     logger.info(f"Registered /files command: {cmd_files.name}")
 
-    return cmd_ask
+    # Return both commands for reference, mirroring bingo.setup_bingo_commands
+    return cmd_ask, cmd_files

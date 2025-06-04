@@ -101,9 +101,10 @@ Event 2 description
 
 The AI module uses the OpenAI **Agents** SDK with several local MCP servers to provide context aware answers. A knowledge graph is stored via the memory server so the assistant can remember past interactions. Mentions are converted to usernames before sending the query and restored in the response so the bot can reference users correctly.
 
-**Command**
+**Commands**
 
-- `/ask <question>` – Ask the assistant anything. The question is run through the Agents SDK (using the `gpt-4.1-mini` model) and the answer is posted as a follow‑up message mentioning you.
+- `/ask <question>` – Ask the assistant anything. The answer is posted as a follow‑up message mentioning you.
+- `/files <question> <find>` – Search the repository for files matching `find` and ask the assistant your question after it reads them.
 
 **Environment**
 
