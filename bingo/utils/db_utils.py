@@ -195,3 +195,4 @@ async def send_error_message(interaction, message):
             ephemeral=True
         )
 
+

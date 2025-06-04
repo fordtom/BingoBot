@@ -13,3 +13,4 @@ if ! git diff --quiet HEAD origin/master; then
     git pull origin master
     docker compose up -d --build
 fi
+

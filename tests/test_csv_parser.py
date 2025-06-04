@@ -32,3 +32,4 @@ def test_parse_events_without_header():
     ]
     result = asyncio.run(parse_events_csv(csv_content))
     assert result == expected
+

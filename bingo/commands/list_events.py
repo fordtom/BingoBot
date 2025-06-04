@@ -82,3 +82,4 @@ async def execute(interaction: discord.Interaction, game_id: int = None):
     embed.set_footer(text=f"Game ID: {game_id} | Total Players: {player_count}")
     
     await interaction.response.send_message(embed=embed)
+

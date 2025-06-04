@@ -20,3 +20,4 @@ uv sync --frozen
 
 # Install pytest for running tests
 uv pip install pytest
+

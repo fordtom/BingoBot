@@ -5,7 +5,11 @@ from db import get_db
 from bingo.utils.channel_check import require_allowed_channel
 
 from bingo.models.event import EventStatus
-from bingo.utils.db_utils import get_or_validate_game, check_user_in_game
+from bingo.utils.db_utils import (
+    get_or_validate_game,
+    check_user_in_game,
+    send_error_message,
+)
 from bingo.utils.config import VOTE_CONSENSUS_THRESHOLD
 from bingo.utils.win_checker import check_for_winners, announce_winners
 
@@ -32,7 +36,7 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
     
     # Check if the user is a player in this game
     if not await check_user_in_game(game_id, interaction.user.id, db):
-        await interaction.response.send_message("You are not a player in this game.")
+        await send_error_message(interaction, "You are not a player in this game.")
         return
     
     # Get the event
@@ -43,12 +47,17 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         event = await cursor.fetchone()
     
     if not event:
-        await interaction.response.send_message(f"Event {event_id} not found in game {game_id}.")
+        await send_error_message(
+            interaction, f"Event {event_id} not found in game {game_id}."
+        )
         return
     
     # Check if the event is already closed
     if event["status"] == EventStatus.CLOSED.name:
-        await interaction.response.send_message(f"Event {event_id} ({event['description']}) is already closed.")
+        await send_error_message(
+            interaction,
+            f"Event {event_id} ({event['description']}) is already closed.",
+        )
         return
     
     # Check if the user has already voted for this event
@@ -59,7 +68,7 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         existing_vote = await cursor.fetchone()
     
     if existing_vote:
-        await interaction.response.send_message("You have already voted for this event.")
+        await send_error_message(interaction, "You have already voted for this event.")
         return
     
     # Add the vote
@@ -115,3 +124,4 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
             f"You voted for event {event_id} ({event['description']}). "
             f"Current votes: {vote_count}/{consensus_threshold} needed for consensus."
         )
+
