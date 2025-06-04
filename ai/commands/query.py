@@ -1,30 +1,51 @@
 """Query command to interact with AI using the agents package."""
 import discord
 import logging
+from collections import deque
 
 from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
 from ai.utils import resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
 
-async def prepare_user_query(interaction: discord.Interaction, question: str) -> str:
-    """Prepare user query with context and resolved mentions.
+# Store the last 10 question/answer pairs
+interaction_history = deque(maxlen=10)
+
+async def prepare_user_query(interaction: discord.Interaction, question: str) -> tuple[str, str]:
+    """Prepare user query with context, resolved mentions, and history.
     
     Args:
         interaction: The Discord interaction object
         question: The original question string
         
     Returns:
-        str: Enhanced question with user context and normalized mentions
+        Tuple[str, str]:
+            - Final question including previous interactions
+            - The base question without history for caching
     """
     # Resolve Discord mentions to usernames
     question_with_usernames = await resolve_mentions(interaction, question)
     
     # Add user context
     asking_username = interaction.user.name
-    enhanced_question = f"Asked by: {asking_username}\n\n{question_with_usernames}"
-    
-    return enhanced_question
+    base_question = f"Asked by: {asking_username}\n\n{question_with_usernames}"
+
+    # Build history context (most recent first)
+    history_lines = []
+    for idx, (q, a) in enumerate(reversed(interaction_history), start=1):
+        history_lines.append(f"previous interaction {idx}:")
+        history_lines.append(f"Q: {q}")
+        history_lines.append(f"A: {a}")
+        history_lines.append("")
+
+    history_text = "\n".join(history_lines)
+
+    if history_text:
+        enhanced_question = f"{history_text}\n{base_question}"
+    else:
+        enhanced_question = base_question
+
+    return enhanced_question, base_question
 
 async def run_agent_async(enhanced_question: str) -> str:
     """Run the Agent with proper async MCP server handling.
@@ -111,8 +132,8 @@ async def execute(interaction: discord.Interaction, question: str):
         question: The question to ask the AI
         use_web_search: Whether to use web search capability (default: True)
     """
-    # Prepare user query with context and resolved mentions
-    enhanced_question = await prepare_user_query(interaction, question)
+    # Prepare user query with context, resolved mentions, and interaction history
+    enhanced_question, base_question = await prepare_user_query(interaction, question)
     
     logger.info(f"AI query from {interaction.user}: {question}")
     await interaction.response.defer()
@@ -121,6 +142,8 @@ async def execute(interaction: discord.Interaction, question: str):
         # Run the agent with proper async MCP server handling
         logger.info("Starting Agent with MCP servers...")
         ai_response = await run_agent_async(enhanced_question)
+        # Cache this interaction after getting the AI response
+        interaction_history.append((base_question, ai_response))
         
         # Convert usernames back to mentions in the AI response
         ai_response_with_mentions = await restore_mentions(interaction, ai_response)
