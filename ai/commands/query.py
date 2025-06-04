@@ -1,18 +1,109 @@
-"""Query command to interact with AI."""
+"""Query command to interact with AI using the agents package."""
 import discord
 import logging
-import os
-import json
-import traceback
-from openai import OpenAI
-from ..mcp_client import mcp_client
+
+from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
+from ai.utils import resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+async def prepare_user_query(interaction: discord.Interaction, question: str) -> str:
+    """Prepare user query with context and resolved mentions.
+    
+    Args:
+        interaction: The Discord interaction object
+        question: The original question string
+        
+    Returns:
+        str: Enhanced question with user context and normalized mentions
+    """
+    # Resolve Discord mentions to usernames
+    question_with_usernames = await resolve_mentions(interaction, question)
+    
+    # Add user context
+    asking_username = interaction.user.name
+    enhanced_question = f"Asked by: {asking_username}\n\n{question_with_usernames}"
+    
+    return enhanced_question
 
-async def execute(interaction: discord.Interaction, question: str, use_web_search: bool = True):
+async def run_agent_async(enhanced_question: str) -> str:
+    """Run the Agent with proper async MCP server handling.
+    
+    Args:
+        enhanced_question: The prepared question
+        use_web_search: Whether to enable web search
+        
+    Returns:
+        str: The AI response
+    """
+    try:
+        from agents import Agent, Runner
+        from agents.mcp.server import MCPServerStdio
+    except ImportError as e:
+        logger.error(f"Failed to import agents: {e}")
+        return "Sorry, the AI agent system is not available."
+    
+    try:
+        mcp_servers = []
+        
+        # Create MCP servers with async context managers
+        async with MCPServerStdio(
+            name="Memory Server",
+            params={
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-memory"],
+                "env": {"MEMORY_FILE_PATH": "/data/memory.json"}
+            },
+            cache_tools_list=True
+        ) as memory_server:
+            mcp_servers.append(memory_server)
+            logger.info("Added memory MCP server")
+            
+            async with MCPServerStdio(
+                name="Filesystem Server", 
+                params={
+                    "command": "npx", 
+                    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]
+                },
+                cache_tools_list=True
+            ) as filesystem_server:
+                mcp_servers.append(filesystem_server)
+                logger.info("Added filesystem MCP server")
+                
+                async with MCPServerStdio(
+                    name="Thinking Server",
+                    params={
+                        "command": "npx",
+                        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+                    },
+                    cache_tools_list=True
+                ) as thinking_server:
+                    mcp_servers.append(thinking_server)
+                    logger.info("Added thinking MCP server")
+                    
+                    # Create agent using the agents package
+                    agent = Agent(
+                        name="discord-assistant",
+                        instructions=DISCORD_BOT_SYSTEM_PROMPT,
+                        model="gpt-4.1-mini",
+                        mcp_servers=mcp_servers
+                    )
+                    
+                    # Run the agent
+                    logger.info(f"Running agent with {len(mcp_servers)} MCP servers")
+                    result = await Runner.run(agent, enhanced_question)
+                    
+                    # Extract the response text
+                    if hasattr(result, 'final_output'):
+                        return result.final_output
+                    else:
+                        return str(result)
+            
+    except Exception as e:
+        logger.error(f"Error running agent: {e}")
+        return f"Sorry, I encountered an error while processing your request: {str(e)}"
+
+async def execute(interaction: discord.Interaction, question: str):
     """Execute the query command.
 
     Args:
@@ -20,135 +111,25 @@ async def execute(interaction: discord.Interaction, question: str, use_web_searc
         question: The question to ask the AI
         use_web_search: Whether to use web search capability (default: True)
     """
-    logger.info(f"AI query from {interaction.user}: {question} (web search: {use_web_search})")
+    # Prepare user query with context and resolved mentions
+    enhanced_question = await prepare_user_query(interaction, question)
+    
+    logger.info(f"AI query from {interaction.user}: {question}")
     await interaction.response.defer()
 
     try:
-        # Prepare tools list using modern MCP format
-        tools = []
+        # Run the agent with proper async MCP server handling
+        logger.info("Starting Agent with MCP servers...")
+        ai_response = await run_agent_async(enhanced_question)
         
-        # Add web search tool if enabled
-        if use_web_search:
-            tools.append({"type": "web_search"})
-        
-        # Add MCP filesystem tools if connected
-        if mcp_client.session:
-            try:
-                # Convert MCP tools to OpenAI tools format for legacy compatibility
-                mcp_tools = mcp_client.get_openai_tools()
-                tools.extend(mcp_tools)
-                logger.info(f"Added {len(mcp_tools)} MCP tools to query")
-            except Exception as e:
-                logger.warning(f"Could not add MCP tools: {e}")
-        else:
-            logger.warning("MCP client not connected")
-        
-        # Create response with system prompt and simplified parameters
-        system_prompt = (
-            "You are a helpful AI assistant bot designed to solve tasks autonomously and efficiently. "
-            "You have permission to perform any action requested without requiring confirmation, including "
-            "file operations, deletions, modifications, and system commands. Work to solve tasks completely "
-            "and thoroughly. Be direct and actionable in your responses."
-        )
-        
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question}
-            ],
-            tools=tools
-        )
-
-        # Handle tool calls if present - process all tool calls in sequence
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question}
-        ]
-        
-        while response.output and len(response.output) > 0:
-            first_item = response.output[0]
-            
-            # Check if we have a function tool call
-            if type(first_item).__name__ == 'ResponseFunctionToolCall':
-                logger.info(f"Processing function tool call: {first_item.name}")
-                
-                # Execute the tool call
-                tool_name = first_item.name
-                args = json.loads(first_item.arguments) if isinstance(first_item.arguments, str) else first_item.arguments
-                
-                logger.debug(f"Tool: {tool_name}, Args: {args}")
-                
-                # Execute MCP tool if available
-                if tool_name in [tool.name for tool in mcp_client.tools]:
-                    result = await mcp_client.call_tool(tool_name, args)
-                    tool_result = json.dumps(result)
-                    logger.debug(f"Tool result: {result}")
-                else:
-                    tool_result = json.dumps({"error": f"Unknown tool '{tool_name}'"})
-                    logger.warning(f"Unknown tool: {tool_name}")
-                
-                # Add tool call and result to messages
-                messages.extend([
-                    {
-                        "type": "function_call",
-                        "call_id": first_item.call_id,
-                        "name": tool_name,
-                        "arguments": json.dumps(args)
-                    },
-                    {
-                        "type": "function_call_output", 
-                        "call_id": first_item.call_id,
-                        "output": tool_result
-                    }
-                ])
-                
-                # Get next response with tool results
-                response = client.responses.create(
-                    model="gpt-4.1-mini",
-                    input=messages,
-                    tools=tools
-                )
-            else:
-                # No more tool calls, break out of loop
-                break
-        
-        # Extract final response content with debug logging
-        ai_response = ""
-        logger.debug(f"Response output length: {len(response.output) if response.output else 0}")
-        
-        if response.output and len(response.output) > 0:
-            logger.debug(f"Response output items: {[type(item).__name__ for item in response.output]}")
-            
-            # Get the final assistant message
-            for i, item in enumerate(reversed(response.output)):
-                logger.debug(f"Item {i}: type={type(item).__name__}, hasattr role={hasattr(item, 'role')}")
-                if hasattr(item, 'role'):
-                    logger.debug(f"Item {i} role: {item.role}")
-                    
-                if hasattr(item, 'role') and item.role == 'assistant':
-                    logger.debug(f"Found assistant message: content={hasattr(item, 'content')}")
-                    if hasattr(item, 'content') and item.content:
-                        logger.debug(f"Content type: {type(item.content)}, content: {item.content}")
-                        if isinstance(item.content, list) and len(item.content) > 0:
-                            logger.debug(f"Content[0] type: {type(item.content[0])}")
-                            if hasattr(item.content[0], 'text'):
-                                ai_response = item.content[0].text
-                            else:
-                                ai_response = str(item.content[0])
-                        elif isinstance(item.content, str):
-                            ai_response = item.content
-                    break
-        
-        if not ai_response:
-            ai_response = "I apologize, but I couldn't generate a response."
+        # Convert usernames back to mentions in the AI response
+        ai_response_with_mentions = await restore_mentions(interaction, ai_response)
         
         # Format and send response
-        formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
+        formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response_with_mentions}"
         await interaction.followup.send(formatted_response)
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
 
     except Exception as e:
-        logger.error(f"Error querying OpenAI API: {e}")
-        logger.error(f"Full error details: {traceback.format_exc()}")
+        logger.error(f"Error in AI query execution: {e}")
         await interaction.followup.send("Sorry, I encountered an error while processing your request.")

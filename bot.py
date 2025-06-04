@@ -15,10 +15,9 @@ from db import get_db
 # For now, directly import the modules, later we'll use the plugin system
 import bingo
 import ai
-from ai.mcp_client import mcp_client
 
 # Configure logging
-log_file = "/app/data/bot-debug.log" if os.path.exists("/app/data") else "bot.log"
+log_file = "/data/bot-debug.log" if os.path.exists("/data") else "bot.log"
 logging.basicConfig(
     level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -52,6 +51,7 @@ else:
 # Initialize the bot
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True  # Enable members intent for mention resolution
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
@@ -63,15 +63,8 @@ async def on_ready():
     # Initialize the database
     await get_db()
     
-    # Connect to MCP filesystem server
-    try:
-        connected = await mcp_client.connect()
-        if connected:
-            logger.info("Connected to MCP filesystem server")
-        else:
-            logger.warning("Failed to connect to MCP filesystem server")
-    except Exception as e:
-        logger.error(f"Error connecting to MCP server: {e}")
+    # MCP servers are now handled via HTTP proxy - no manual connection needed
+    logger.info("Using native OpenAI MCP integration via HTTP proxy")
     
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
@@ -101,9 +94,8 @@ async def on_command_error(ctx, error):
 
 async def cleanup():
     """Cleanup function to disconnect from services."""
-    if mcp_client.session:
-        await mcp_client.disconnect()
-        logger.info("Disconnected from MCP server")
+    # MCP servers are handled by docker-entrypoint.sh cleanup
+    logger.info("Bot cleanup completed")
 
 if __name__ == "__main__":
     try:

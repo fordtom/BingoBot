@@ -1,22 +1,16 @@
 #!/bin/bash
 set -e
 
-# Set environment variables for MCP servers
-export MEMORY_FILE_PATH="/app/data/memory.json"
+# Ensure data directory is writable
+echo "=== Setting up data directory ==="
+mkdir -p /data
+chmod 777 /data
+echo "Data directory permissions set"
 
-# Debug: Show directory structure and permissions
-echo "=== Debug: Current directory structure ==="
-ls -la /
+# Set memory file path for memory server
+export MEMORY_FILE_PATH="/data/memory.json"
 
-echo -e "\n=== Debug: NAS mount point ==="
-ls -la /nas 2>&1 || echo "Failed to list /nas"
-
-echo -e "\n=== Debug: App data directory ==="
-ls -la /app/data
-
-echo -e "\n=== Debug: Environment variables ==="
-echo "MEMORY_FILE_PATH=$MEMORY_FILE_PATH"
-
-# Start the Python bot which will handle the MCP server
-echo -e "\n=== Starting Discord bot with MCP client ==="
-exec python -u bot.py > /app/data/bot.log 2>&1
+# Start the Python bot which will use OpenAI Agents SDK with local MCP servers
+echo -e "\n=== Starting Discord bot with OpenAI Agents SDK ===" 
+echo "MCP servers will be launched on-demand by the Agents SDK via stdio"
+python -u bot.py 2>&1 | tee /data/bot.log

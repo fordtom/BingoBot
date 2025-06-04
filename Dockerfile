@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
+RUN pip install --no-cache-dir uv
 
 # Install Node.js for MCP server
 RUN apt-get update && apt-get install -y \
@@ -11,8 +12,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy Python requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY  pyproject.toml uv.lock ./
+RUN uv sync --frozen
+
+# Activate the virtual environment by adding it to PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Install MCP servers
 RUN npm install -g @modelcontextprotocol/server-filesystem @modelcontextprotocol/server-memory @modelcontextprotocol/server-sequential-thinking
