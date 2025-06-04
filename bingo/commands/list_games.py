@@ -6,6 +6,7 @@ from typing import List, Tuple
 from db import get_db
 from bingo.utils.channel_check import is_allowed_channel
 from bingo.utils.db_utils import get_active_game
+from bingo.models.event import EventStatus
 
 
 async def execute(interaction: discord.Interaction):
@@ -39,22 +40,22 @@ async def execute(interaction: discord.Interaction):
         )
         games = await cursor.fetchall()
         
-        # For each game, get the count of approved events
+        # For each game, get the count of closed events
         games_with_stats: List[Tuple[int, str, int, int, int]] = []
         for game in games:
             game_id, title, grid_size, event_count = game
-            
-            # Get count of approved events
+
+            # Get count of closed events
             cursor = await db.db.execute(
                 """
-                SELECT COUNT(DISTINCT e.event_id) as approved_count
+                SELECT COUNT(DISTINCT e.event_id) as closed_count
                 FROM events e
-                WHERE e.game_id = ? AND e.status = 'approved'
+                WHERE e.game_id = ? AND e.status = ?
                 """,
-                (game_id,)
+                (game_id, EventStatus.CLOSED.name)
             )
-            approved_result = await cursor.fetchone()
-            approved_count = approved_result[0] if approved_result else 0
+            closed_result = await cursor.fetchone()
+            closed_count = closed_result[0] if closed_result else 0
             
             # Get player count
             cursor = await db.db.execute(
@@ -68,7 +69,7 @@ async def execute(interaction: discord.Interaction):
             player_result = await cursor.fetchone()
             player_count = player_result[0] if player_result else 0
             
-            games_with_stats.append((game_id, title, grid_size, approved_count, event_count, player_count))
+            games_with_stats.append((game_id, title, grid_size, closed_count, event_count, player_count))
         
         # Create an embed with the games
         if games_with_stats:
@@ -79,16 +80,16 @@ async def execute(interaction: discord.Interaction):
             )
             
             for game in games_with_stats:
-                game_id, title, grid_size, approved_count, event_count, player_count = game
+                game_id, title, grid_size, closed_count, event_count, player_count = game
                 
                 # Mark the active game with a 🟢 emoji
                 game_name = f"🟢 {title}" if game_id == active_game_id else title
                 
                 # Format: Game ID: Title (grid_size x grid_size)
-                # Events: approved/total | Players: count
+                # Events: closed/total | Players: count
                 value = (
                     f"**Grid Size:** {grid_size}×{grid_size}\n"
-                    f"**Events:** {approved_count}/{event_count} approved\n"
+                    f"**Events:** {closed_count}/{event_count} closed\n"
                     f"**Players:** {player_count}"
                 )
                 
