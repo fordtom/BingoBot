@@ -55,7 +55,7 @@ async def check_for_winners(db, game_id: int, grid_size: int) -> List[int]:
     return winners
 
 
-async def announce_winners(channel, winners: List[int], game_title: str):
+async def announce_winners(channel, winners: List[int], game_title: str, bot: discord.Client):
     """
     Announce the winners of a bingo game.
     
@@ -63,17 +63,17 @@ async def announce_winners(channel, winners: List[int], game_title: str):
         channel: Discord channel to send the announcement to
         winners: List of user IDs who have won
         game_title: Title of the game
+        bot: The Discord bot client used to fetch user information
     """
     if not winners:
         return
     
     # Fetch user objects for all winners
     winner_users = []
-    client = channel.guild.client
     for user_id in winners:
         user = None
         try:
-            user = await client.fetch_user(user_id)
+            user = await bot.fetch_user(user_id)
         except discord.NotFound:
             # Fallback if user can't be fetched
             user = f"User ID: {user_id}"

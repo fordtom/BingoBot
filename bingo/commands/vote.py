@@ -113,7 +113,7 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         # Check for winners if the event was closed
         winners = await check_for_winners(db, game_id, game["grid_size"])
         if winners:
-            await announce_winners(interaction.channel, winners, game["title"])
+            await announce_winners(interaction.channel, winners, game["title"], interaction.client)
     else:
         await interaction.response.send_message(
             f"You voted for event {event_id} ({event['description']}). "
