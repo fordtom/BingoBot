@@ -10,6 +10,8 @@ The bot uses a modular architecture centered around the bingo game module.
 BingoBot/                # Root directory
 ├── ai/                  # AI integration module
 │   ├── commands/        # AI-specific commands
+│   ├── prompts.py       # System prompts for the assistant
+│   ├── utils.py         # Helper utilities (mention & MCP handling)
 │   └── __init__.py      # Module initialization
 ├── bingo/               # Bingo game module
 │   ├── commands/        # Bingo-specific commands
@@ -17,19 +19,24 @@ BingoBot/                # Root directory
 │   ├── utils/           # Bingo-specific utilities
 │   └── __init__.py      # Module initialization
 ├── db/                  # Database connection
-├── data/                # Storage for database files
 ├── bot.py               # Main bot entry point
-└── requirements.txt     # Dependencies
+├── docker-compose.yml   # Docker configuration
+├── docker-entrypoint.sh # Startup script for containers
+├── pyproject.toml       # Project configuration and dependencies
+├── uv.lock              # Frozen dependency versions
+├── view-logs.sh         # Helper script to tail logs
+└── data/                # Storage for database files
 ```
 
 ## Setup
 
 1. Clone this repository
-2. Install dependencies:
-   ```
-   python -m venv .venv
+2. Install dependencies (requires [uv](https://github.com/astral-sh/uv)):
+   ```bash
+   pip install --upgrade uv
+   uv venv
    source .venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
    ```
 3. Create a `.env` file with your Discord token, OpenAI API key, and optional allowed channel ID:
    ```
@@ -87,11 +94,11 @@ Event 2 description
 
 ### AI Integration
 
-The AI module integrates with OpenAI's Responses API using the `gpt-4.1-mini` model to provide AI-powered assistance.
+The AI module uses the OpenAI **Agents** SDK with several local MCP servers to provide context aware answers. A knowledge graph is stored via the memory server so the assistant can remember past interactions. Mentions are converted to usernames before sending the query and restored in the response so the bot can reference users correctly.
 
 **Command**
 
-- `/ask <question>`: Ask the AI assistant a question. The bot will defer the response, query the OpenAI API, and follow up with a formatted answer mentioning you.
+- `/ask <question>` – Ask the assistant anything. The question is run through the Agents SDK (using the `gpt-4.1-mini` model) and the answer is posted as a follow‑up message mentioning you.
 
 **Environment**
 
