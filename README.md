@@ -21,10 +21,13 @@ BingoBot/                # Root directory
 ├── db/                  # Database connection
 ├── bot.py               # Main bot entry point
 ├── docker-compose.yml   # Docker configuration
-├── docker-entrypoint.sh # Startup script for containers
+├── run/                 # Utility scripts
+│   ├── docker-entrypoint.sh # Startup script for containers
+│   ├── setup.sh
+│   ├── update.sh
+│   └── view-logs.sh     # Helper script to tail logs
 ├── pyproject.toml       # Project configuration and dependencies
 ├── uv.lock              # Frozen dependency versions
-├── view-logs.sh         # Helper script to tail logs
 └── data/                # Storage for database files
 ```
 
