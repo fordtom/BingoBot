@@ -48,3 +48,17 @@ async def is_allowed_channel(interaction: discord.Interaction) -> bool:
         ephemeral=True
     )
     return False
+
+
+def require_allowed_channel(func):
+    """Decorator to restrict commands to the configured channel."""
+
+    async def wrapper(*args, **kwargs):
+        if not args:
+            raise ValueError("Interaction argument missing")
+        interaction = args[0]
+        if not await is_allowed_channel(interaction):
+            return
+        return await func(*args, **kwargs)
+
+    return wrapper

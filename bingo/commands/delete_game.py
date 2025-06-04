@@ -1,10 +1,10 @@
 """Command to delete a bingo game and all its data."""
 import discord
 from db import get_db
-from bingo.utils.channel_check import is_allowed_channel
-from bingo.utils.db_utils import get_active_game
+from bingo.utils.channel_check import require_allowed_channel
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction, game_id: int):
     """
     Delete a game and all associated data from the database.
@@ -13,9 +13,6 @@ async def execute(interaction: discord.Interaction, game_id: int):
         interaction: The Discord interaction that triggered the command
         game_id: ID of the game to delete
     """
-    # Check if command is used in the allowed channel
-    if not await is_allowed_channel(interaction):
-        return
         
     db = await get_db()
     

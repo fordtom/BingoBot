@@ -153,6 +153,21 @@ async def get_event_by_id(event_id, game_id, db=None):
     return event
 
 
+async def fetch_events_for_game(game_id, db=None):
+    """Retrieve all events for a given game."""
+    if db is None:
+        from db import get_db
+        db = await get_db()
+
+    cursor = await db.db.execute(
+        "SELECT * FROM events WHERE game_id = ? ORDER BY event_id",
+        (game_id,),
+    )
+    events = await cursor.fetchall()
+    await cursor.close()
+    return events
+
+
 async def send_error_message(interaction, message):
     """Send a standardized error message.
     
@@ -179,3 +194,4 @@ async def send_error_message(interaction, message):
             ),
             ephemeral=True
         )
+

@@ -4,11 +4,12 @@ import sqlite3
 from typing import List, Tuple
 
 from db import get_db
-from bingo.utils.channel_check import is_allowed_channel
+from bingo.utils.channel_check import require_allowed_channel
 from bingo.utils.db_utils import get_active_game
 from bingo.models.event import EventStatus
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction):
     """Execute the list_games command.
     

@@ -1,15 +1,13 @@
 """Command to display help information about the bingo bot."""
 import discord
 from discord import Embed
-from bingo.utils.channel_check import is_allowed_channel
+from bingo.utils.channel_check import require_allowed_channel
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction):
     """Generate a help message explaining how to use the bot and its commands."""
     
-    # Check if command is used in the allowed channel
-    if not await is_allowed_channel(interaction):
-        return
     
     # Defer the response since help content might take a moment to compile
     await interaction.response.defer(ephemeral=True)
@@ -21,79 +19,52 @@ async def execute(interaction: discord.Interaction):
         color=discord.Color.blue()
     )
     
-    # Add fields for each command
-    help_embed.add_field(
-        name="📋 `/bingo help`",
-        value="Shows this help message",
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="🆕 `/bingo new_game <title> <grid_size> <@players...> [events_csv?]`",
-        value=(
+    # Command help entries
+    command_help = [
+        ("📋 `/bingo help`", "Shows this help message"),
+        (
+            "🆕 `/bingo new_game <title> <grid_size> <@players...> [events_csv?]`",
             "Creates a complete bingo game with customized settings.\n"
             "• `title`: Name for your bingo game\n"
             "• `grid_size`: Size of the grid (3=3×3, 4=4×4, 5=5×5)\n"
             "• `@players`: Mention all players who will participate\n"
-            "• `events_csv`: Optional CSV file with event descriptions"
+            "• `events_csv`: Optional CSV file with event descriptions",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="📊 `/bingo list_games`",
-        value=(
-            "Lists all available bingo games with their details.\n"
+        (
+            "📊 `/bingo list_games`",
+            "Lists all available bingo games with their details.\n",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="📊 `/bingo list_events [game_id?]`",
-        value=(
+        (
+            "📊 `/bingo list_events [game_id?]`",
             "Lists all events for the active game or specified game.\n"
-            "• `game_id`: Optional game ID (uses active game if not specified)"
+            "• `game_id`: Optional game ID (uses active game if not specified)",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="🎮 `/bingo view_board <user> [game_id?]`",
-        value=(
+        (
+            "🎮 `/bingo view_board <user> [game_id?]`",
             "Shows a player's bingo board.\n"
             "• `user`: The user whose board you want to see\n"
-            "• `game_id`: Optional game ID (uses active game if not specified)"
+            "• `game_id`: Optional game ID (uses active game if not specified)",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="✅ `/bingo vote <event_id> [game_id?]`",
-        value=(
+        (
+            "✅ `/bingo vote <event_id> [game_id?]`",
             "Vote that an event has occurred.\n"
             "• `event_id`: ID of the event that happened\n"
-            "• `game_id`: Optional game ID (uses active game if not specified)"
+            "• `game_id`: Optional game ID (uses active game if not specified)",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="⭐ `/bingo set_active_game <game_id>`",
-        value=(
+        (
+            "⭐ `/bingo set_active_game <game_id>`",
             "Sets which game is currently active for commands that don't specify a game ID.\n"
-            "• `game_id`: ID of the game to make active"
+            "• `game_id`: ID of the game to make active",
         ),
-        inline=False
-    )
-    
-    help_embed.add_field(
-        name="🗑️ `/bingo delete_game <game_id>`",
-        value=(
+        (
+            "🗑️ `/bingo delete_game <game_id>`",
             "Deletes a game and all associated data.\n"
-            "• `game_id`: ID of the game to delete"
+            "• `game_id`: ID of the game to delete",
         ),
-        inline=False
-    )
+    ]
+
+    for name, desc in command_help:
+        help_embed.add_field(name=name, value=desc, inline=False)
     
     # Add CSV format information
     help_embed.add_field(
@@ -138,3 +109,4 @@ async def execute(interaction: discord.Interaction):
     
     # Send the help embed as a followup
     await interaction.followup.send(embed=help_embed, ephemeral=True)
+
