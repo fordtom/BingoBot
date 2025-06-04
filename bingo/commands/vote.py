@@ -2,7 +2,7 @@
 import discord
 import math
 from db import get_db
-from bingo.utils.channel_check import is_allowed_channel
+from bingo.utils.channel_check import require_allowed_channel
 
 from bingo.models.event import EventStatus
 from bingo.utils.db_utils import get_or_validate_game, check_user_in_game
@@ -10,6 +10,7 @@ from bingo.utils.config import VOTE_CONSENSUS_THRESHOLD
 from bingo.utils.win_checker import check_for_winners, announce_winners
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction, event_id: int, game_id: int = None):
     """
     Vote that an event has occurred.
@@ -19,9 +20,6 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         event_id: ID of the event to vote for (this is the event number within the game, not a global ID)
         game_id: ID of the game (optional, uses active game if not provided)
     """
-    # Check if command is used in the allowed channel
-    if not await is_allowed_channel(interaction):
-        return
         
     db = await get_db()
     
@@ -95,7 +93,6 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         consensus_threshold = max(2, math.ceil(player_count * VOTE_CONSENSUS_THRESHOLD))
     
     # Check if consensus is reached
-    event_closed = False
     if vote_count >= consensus_threshold:
         # Mark the event as closed
         await db.db.execute(
@@ -103,14 +100,13 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
             (EventStatus.CLOSED.name, game_id, event_id)
         )
         await db.db.commit()
-        event_closed = True
         
         await interaction.response.send_message(
             f"You voted for event {event_id} ({event['description']}). "
             f"Consensus reached ({vote_count}/{player_count} votes)! Event is now closed."
         )
         
-        # Check for winners if the event was closed
+        # Check for winners now that the event is closed
         winners = await check_for_winners(db, game_id, game["grid_size"])
         if winners:
             await announce_winners(interaction.channel, winners, game["title"], interaction.client)

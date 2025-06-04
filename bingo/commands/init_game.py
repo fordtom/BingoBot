@@ -1,11 +1,12 @@
 """Command to initialize a new empty bingo game."""
 import discord
 from db import get_db
-from bingo.utils.channel_check import is_allowed_channel
+from bingo.utils.channel_check import require_allowed_channel
 
 from bingo.models.event import EventStatus
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction):
     """
     Initialize a new empty bingo game.
@@ -13,9 +14,6 @@ async def execute(interaction: discord.Interaction):
     Args:
         interaction: The Discord interaction that triggered the command
     """
-    # Check if command is used in the allowed channel
-    if not await is_allowed_channel(interaction):
-        return
         
     # Defer response to give us time to process
     await interaction.response.defer(ephemeral=False)

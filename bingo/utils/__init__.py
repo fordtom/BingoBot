@@ -17,3 +17,6 @@ from bingo.utils.db_utils import (
 from bingo.utils.csv_parser import parse_events_csv
 from bingo.utils.win_checker import check_for_winners, announce_winners
 from bingo.utils.board_generator import generate_board
+from bingo.utils.board_image import generate_bingo_board_image
+
+

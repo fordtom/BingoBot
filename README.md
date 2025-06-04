@@ -43,9 +43,11 @@ BingoBot/                # Root directory
    # .env
    DISCORD_TOKEN=your_discord_bot_token_here
    OPENAI_API_KEY=your_openai_api_key_here
-   CHANNEL=your_allowed_channel_id  # Optional
-   ```
-4. Run the bot:
+  CHANNEL=your_allowed_channel_id  # Optional
+  ```
+   All commands are automatically restricted to this channel when the variable is set.
+
+  4. Run the bot:
    ```
    python bot.py
    ```

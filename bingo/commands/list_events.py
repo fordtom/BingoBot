@@ -3,12 +3,13 @@ import discord
 import math
 
 from db import get_db
-from bingo.utils.channel_check import is_allowed_channel
+from bingo.utils.channel_check import require_allowed_channel
 from bingo.models.event import EventStatus
 from bingo.utils.db_utils import get_or_validate_game
 from bingo.utils.config import VOTE_CONSENSUS_THRESHOLD
 
 
+@require_allowed_channel
 async def execute(interaction: discord.Interaction, game_id: int = None):
     """
     List all events for a specified game or the active game.
@@ -17,9 +18,6 @@ async def execute(interaction: discord.Interaction, game_id: int = None):
         interaction: The Discord interaction that triggered the command
         game_id: ID of the game to list events for (optional, uses active game if not provided)
     """
-    # Check if command is used in the allowed channel
-    if not await is_allowed_channel(interaction):
-        return
         
     db = await get_db()
     
