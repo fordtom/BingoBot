@@ -13,6 +13,9 @@ BingoBot/                # Root directory
 │   ├── prompts.py       # System prompts for the assistant
 │   ├── utils.py         # Helper utilities (mention & MCP handling)
 │   └── __init__.py      # Module initialization
+├── filesystem/          # File upload & management module
+│   ├── commands/        # /file commands
+│   └── __init__.py      # Module initialization
 ├── bingo/               # Bingo game module
 │   ├── commands/        # Bingo-specific commands
 │   ├── models/          # Bingo-specific models

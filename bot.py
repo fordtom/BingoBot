@@ -16,6 +16,7 @@ from db import get_db
 # For now, directly import the modules, later we'll use the plugin system
 import bingo
 import ai
+import filesystem
 
 # Configure logging
 log_file = "/data/bot-debug.log" if os.path.exists("/data") else "bot.log"
@@ -64,10 +65,14 @@ async def on_ready():
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
     logger.info("Bingo commands registered")
-    
+
     # Register AI commands
     ai.setup_ai_commands(bot)
     logger.info("AI commands registered")
+
+    # Register filesystem commands
+    filesystem.setup_filesystem_commands(bot)
+    logger.info("Filesystem commands registered")
     
     # Sync commands with Discord
     try:
