@@ -103,8 +103,9 @@ The AI module uses the OpenAI **Agents** SDK with several local MCP servers to p
 
 **Commands**
 
-- `/ask <question>` – Ask the assistant anything. The answer is posted as a follow‑up message mentioning you.
-- `/files <question> <find>` – Search the repository for files matching `find` and ask the assistant your question after it reads them.
+- `/ask <question> [files]` – Ask the assistant anything. If `files` is provided,
+  the assistant will first search the repository for matching files and read them
+  before answering. The reply is posted as a follow‑up message mentioning you.
 
 **Environment**
 
