@@ -2,20 +2,15 @@
 Utility for checking if commands are run in the correct channel.
 """
 
-import os
 import discord
 from dotenv import load_dotenv
+from .env_utils import get_allowed_channel_id
 
 # Load environment variables if not already loaded
 load_dotenv()
 
 # Get the allowed channel ID
-ALLOWED_CHANNEL_ID = os.getenv('CHANNEL')
-if ALLOWED_CHANNEL_ID:
-    try:
-        ALLOWED_CHANNEL_ID = int(ALLOWED_CHANNEL_ID)
-    except ValueError:
-        ALLOWED_CHANNEL_ID = None
+ALLOWED_CHANNEL_ID = get_allowed_channel_id()
 
 async def is_allowed_channel(interaction: discord.Interaction) -> bool:
     """
@@ -62,3 +57,4 @@ def require_allowed_channel(func):
         return await func(*args, **kwargs)
 
     return wrapper
+

@@ -93,3 +93,4 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
     
     # Send the embed and file in the same message, but not embedded
     await interaction.followup.send(embed=embed, file=file)
+

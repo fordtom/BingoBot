@@ -106,3 +106,4 @@ async def execute(interaction: discord.Interaction):
             
     except sqlite3.Error as e:
         await interaction.followup.send(f"Error retrieving games: {e}")
+

@@ -41,3 +41,4 @@ async def execute(interaction: discord.Interaction, game_id: int):
         await db.db.rollback()
         await interaction.response.send_message(f"Error setting active game: {str(e)}")
         return
+

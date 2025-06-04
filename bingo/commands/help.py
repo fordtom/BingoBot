@@ -110,3 +110,4 @@ async def execute(interaction: discord.Interaction):
     # Send the help embed as a followup
     await interaction.followup.send(embed=help_embed, ephemeral=True)
 
+

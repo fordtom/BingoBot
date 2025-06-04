@@ -34,3 +34,4 @@ def test_generate_board_not_enough_events():
     with pytest.raises(ValueError):
         asyncio.run(generate_board(events, grid_size=2))
 
+

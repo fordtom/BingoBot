@@ -1,15 +1,9 @@
 import io
 from PIL import Image, ImageDraw, ImageFont
 
-async def generate_bingo_board_image(grid, grid_size, square_size=170):
-    """Generate a bingo board image from grid data."""
-    img_width = grid_size * square_size
-    img_height = grid_size * square_size
-    img = Image.new("RGB", (img_width, img_height), "white")
-    draw = ImageDraw.Draw(img)
 
-    font_size = 20
-    square_font = ImageFont.load_default()
+def load_first_available_font(font_size: int = 20) -> ImageFont.FreeTypeFont:
+    """Return the first available truetype font or the default font."""
     potential_fonts = [
         "Arial", "arial",
         "Helvetica", "helvetica",
@@ -24,11 +18,20 @@ async def generate_bingo_board_image(grid, grid_size, square_size=170):
     ]
     for font_name in potential_fonts:
         try:
-            temp_font = ImageFont.truetype(font_name, font_size)
-            square_font = temp_font
-            break
+            return ImageFont.truetype(font_name, font_size)
         except Exception:
             continue
+    return ImageFont.load_default()
+
+async def generate_bingo_board_image(grid, grid_size, square_size=170):
+    """Generate a bingo board image from grid data."""
+    img_width = grid_size * square_size
+    img_height = grid_size * square_size
+    img = Image.new("RGB", (img_width, img_height), "white")
+    draw = ImageDraw.Draw(img)
+
+    font_size = 20
+    square_font = load_first_available_font(font_size)
 
     for row in range(grid_size):
         for col in range(grid_size):
@@ -75,4 +78,5 @@ async def generate_bingo_board_image(grid, grid_size, square_size=170):
     img.save(img_bytes, format="PNG")
     img_bytes.seek(0)
     return img_bytes
+
 

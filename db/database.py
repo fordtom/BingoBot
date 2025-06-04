@@ -22,6 +22,13 @@ class Database:
         """Connect to the database."""
         self.db = await aiosqlite.connect(self.db_path)
         self.db.row_factory = aiosqlite.Row
+
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
         
     async def close(self):
         """Close the database connection."""

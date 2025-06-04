@@ -10,6 +10,7 @@ import sys
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from bingo.utils.env_utils import get_discord_token, get_allowed_channel_id
 
 from db import get_db
 # For now, directly import the modules, later we'll use the plugin system
@@ -31,22 +32,16 @@ logger.info(f"Logging to {log_file}")
 
 # Load environment variables
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-if not TOKEN:
-    logger.error("DISCORD_TOKEN environment variable not set")
-    raise ValueError("DISCORD_TOKEN environment variable not set")
+TOKEN = get_discord_token()
 
 # Get the allowed channel ID
-ALLOWED_CHANNEL_ID = os.getenv('CHANNEL')
-if not ALLOWED_CHANNEL_ID:
-    logger.warning("CHANNEL environment variable not set. Commands will work in all channels.")
+ALLOWED_CHANNEL_ID = get_allowed_channel_id()
+if ALLOWED_CHANNEL_ID:
+    logger.info(f"Commands restricted to channel ID: {ALLOWED_CHANNEL_ID}")
 else:
-    try:
-        ALLOWED_CHANNEL_ID = int(ALLOWED_CHANNEL_ID)
-        logger.info(f"Commands restricted to channel ID: {ALLOWED_CHANNEL_ID}")
-    except ValueError:
-        logger.warning("CHANNEL environment variable is not a valid integer. Commands will work in all channels.")
-        ALLOWED_CHANNEL_ID = None
+    logger.warning(
+        "CHANNEL environment variable not set or invalid. Commands will work in all channels."
+    )
 
 # Initialize the bot
 intents = discord.Intents.default()

@@ -7,6 +7,7 @@ import pytest
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHANNEL_CHECK_PATH = os.path.join(BASE_DIR, "bingo", "utils", "channel_check.py")
+ENV_UTILS_PATH = os.path.join(BASE_DIR, "bingo", "utils", "env_utils.py")
 
 
 def load_channel_check(env_value=None):
@@ -22,6 +23,8 @@ def load_channel_check(env_value=None):
         stub.User = DummyUser
         stub.Embed = object
         stub.Color = types.SimpleNamespace(gold=lambda: None, red=lambda: None)
+        app_commands_stub = types.SimpleNamespace(Group=lambda *a, **k: None)
+        stub.app_commands = app_commands_stub
         sys.modules['discord'] = stub
     # Stub out dotenv.load_dotenv to avoid dependency on python-dotenv
     if 'dotenv' not in sys.modules:
@@ -30,7 +33,21 @@ def load_channel_check(env_value=None):
             return None
         dotenv_stub.load_dotenv = load_dotenv
         sys.modules['dotenv'] = dotenv_stub
-    spec = importlib.util.spec_from_file_location("channel_check", CHANNEL_CHECK_PATH)
+    # Provide stub bingo package with env_utils
+    if 'bingo' not in sys.modules:
+        bingo_pkg = types.ModuleType('bingo')
+        utils_pkg = types.ModuleType('bingo.utils')
+        bingo_pkg.utils = utils_pkg
+        sys.modules['bingo'] = bingo_pkg
+        sys.modules['bingo.utils'] = utils_pkg
+    if 'bingo.utils.env_utils' not in sys.modules:
+        env_spec = importlib.util.spec_from_file_location('bingo.utils.env_utils', ENV_UTILS_PATH)
+        env_module = importlib.util.module_from_spec(env_spec)
+        sys.modules['bingo.utils.env_utils'] = env_module
+        env_spec.loader.exec_module(env_module)
+    if BASE_DIR not in sys.path:
+        sys.path.insert(0, BASE_DIR)
+    spec = importlib.util.spec_from_file_location("bingo.utils.channel_check", CHANNEL_CHECK_PATH)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -87,4 +104,5 @@ def test_is_allowed_channel_mismatch():
     result = asyncio.run(module.is_allowed_channel(interaction))
     assert result is False
     assert "This command can only be used" in interaction.response.sent
+
 

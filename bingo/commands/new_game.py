@@ -6,7 +6,7 @@ from bingo.utils.channel_check import require_allowed_channel
 from bingo.models.event import EventStatus
 from bingo.utils.csv_parser import parse_events_csv
 from bingo.utils.board_generator import generate_board
-from bingo.utils.db_utils import fetch_events_for_game
+from bingo.utils.db_utils import fetch_events_for_game, send_error_message
 
 
 async def insert_game(db, title: str, grid_size: int) -> int:
@@ -84,11 +84,14 @@ async def execute(interaction: discord.Interaction, title: str, grid_size: int,
     """
         
     if grid_size < 2 or grid_size > 10:
-        await interaction.response.send_message("Grid size must be between 2 and 10.")
+        await send_error_message(interaction, "Grid size must be between 2 and 10.")
         return
     
     if not player_ids:
-        await interaction.response.send_message("No players specified. Use mentions to tag players (e.g., @player1 @player2).")
+        await send_error_message(
+            interaction,
+            "No players specified. Use mentions to tag players (e.g., @player1 @player2).",
+        )
         return
     
     # We need events from CSV or somewhere else
@@ -108,23 +111,27 @@ async def execute(interaction: discord.Interaction, title: str, grid_size: int,
             events_data = await parse_events_csv(csv_text)
             
             if not events_data:
-                await interaction.followup.send("No valid events found in the CSV file.")
+                await send_error_message(interaction, "No valid events found in the CSV file.")
                 return
             
             # Make sure we have enough events for all boards
             required_events = grid_size * grid_size
             if len(events_data) < required_events:
-                await interaction.followup.send(
+                await send_error_message(
+                    interaction,
                     f"Not enough events in the CSV. Need at least {required_events} "
-                    f"for a {grid_size}x{grid_size} board, but only found {len(events_data)}."
+                    f"for a {grid_size}x{grid_size} board, but only found {len(events_data)}.",
                 )
                 return
             
         except Exception as e:
-            await interaction.followup.send(f"Error parsing CSV: {str(e)}")
+            await send_error_message(interaction, f"Error parsing CSV: {str(e)}")
             return
     else:
-        await interaction.followup.send("No events CSV provided. Please provide a CSV file with event descriptions.")
+        await send_error_message(
+            interaction,
+            "No events CSV provided. Please provide a CSV file with event descriptions.",
+        )
         return
     
     db = await get_db()
@@ -158,6 +165,7 @@ async def execute(interaction: discord.Interaction, title: str, grid_size: int,
 
     except Exception as e:
         await db.db.rollback()
-        await interaction.followup.send(f"Error creating game: {str(e)}")
+        await send_error_message(interaction, f"Error creating game: {str(e)}")
         return
+
 
