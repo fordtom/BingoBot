@@ -21,4 +21,4 @@ def get_allowed_channel_id() -> int | None:
             return int(channel)
         except ValueError:
             return None
-    return None
+    return None 

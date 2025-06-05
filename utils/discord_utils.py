@@ -88,6 +88,25 @@ async def restore_mentions(interaction: discord.Interaction, response: str) -> s
     return modified_response
 
 
+def parse_player_ids(players_str: str) -> list[int]:
+    """Parse a string of player mentions and return a list of user IDs."""
+    player_ids = []
+    # Regular expression to find user mentions
+    mention_pattern = r'<@!?(\d+)>'
+    
+    # Find all matches in the input string
+    matches = re.findall(mention_pattern, players_str)
+    
+    for user_id_str in matches:
+        try:
+            player_ids.append(int(user_id_str))
+        except ValueError:
+            # This should not happen with the regex, but as a safeguard
+            logger.warning(f"Could not parse user ID: {user_id_str}")
+            
+    return player_ids
+
+
 def format_username(user: discord.abc.User) -> str:
     """Return a filesystem-safe version of the user's actual username."""
     base_name = getattr(user, "name", str(user))

@@ -10,13 +10,9 @@ import sys
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from bingo.utils.env_utils import get_discord_token, get_allowed_channel_id
+from utils.env_utils import get_discord_token, get_allowed_channel_id
 
 from db import get_db
-# For now, directly import the modules, later we'll use the plugin system
-import bingo
-import ai
-import filesystem
 
 # Configure logging
 log_file = "/data/bot-debug.log" if os.path.exists("/data") else "bot.log"
@@ -51,6 +47,16 @@ intents.members = True  # Enable members intent for mention resolution
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
+async def load_cogs():
+    """Load all cogs."""
+    await bot.load_extension('bingo.cog')
+    logger.info("Bingo cog loaded")
+    await bot.load_extension('ai.cog')
+    logger.info("AI cog loaded")
+    await bot.load_extension('filesystem.cog')
+    logger.info("Filesystem cog loaded")
+
+
 @bot.event
 async def on_ready():
     """Called when the bot is ready and connected to Discord."""
@@ -67,18 +73,9 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to initialize MCP servers: {e}")
     
-    # Register bingo commands
-    bingo.setup_bingo_commands(bot)
-    logger.info("Bingo commands registered")
+    # Load cogs
+    await load_cogs()
 
-    # Register AI commands
-    ai.setup_ai_commands(bot)
-    logger.info("AI commands registered")
-
-    # Register filesystem commands
-    filesystem.setup_filesystem_commands(bot)
-    logger.info("Filesystem commands registered")
-    
     # Sync commands with Discord
     try:
         synced = await bot.tree.sync()
