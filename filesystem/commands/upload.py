@@ -2,6 +2,7 @@
 import os
 import logging
 import discord
+from utils.discord_utils import format_username
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +13,12 @@ async def execute(interaction: discord.Interaction, file: discord.Attachment):
     """Save the uploaded file to the uploads directory."""
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+    username = format_username(interaction.user)
+    user_dir = os.path.join(UPLOAD_DIR, username)
+    os.makedirs(user_dir, exist_ok=True)
+
     file_bytes = await file.read()
-    save_path = os.path.join(UPLOAD_DIR, file.filename)
+    save_path = os.path.join(user_dir, file.filename)
     try:
         with open(save_path, "wb") as f:
             f.write(file_bytes)

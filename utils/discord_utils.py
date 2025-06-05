@@ -86,3 +86,9 @@ async def restore_mentions(interaction: discord.Interaction, response: str) -> s
         )
 
     return modified_response
+
+
+def format_username(user: discord.abc.User) -> str:
+    """Return a filesystem-safe version of the user's actual username."""
+    base_name = getattr(user, "name", str(user))
+    return re.sub(r"[^a-zA-Z0-9_.-]", "_", base_name)
