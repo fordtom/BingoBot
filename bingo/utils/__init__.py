@@ -18,7 +18,6 @@ from bingo.utils.csv_parser import parse_events_csv
 from bingo.utils.win_checker import check_for_winners, announce_winners
 from bingo.utils.board_generator import generate_board
 from bingo.utils.board_image import generate_bingo_board_image
-from bingo.utils.env_utils import get_discord_token, get_allowed_channel_id
 
 
 
