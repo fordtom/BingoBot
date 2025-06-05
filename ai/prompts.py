@@ -59,7 +59,8 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "     b) Create relations for connections between people/entities\n"
     "     c) Create new entities for people, organizations, projects mentioned\n"
     "   - When users explicitly say 'remember this', 'store this', or similar - you MUST use memory tools\n"
-    "   - Store context liberally - err on the side of storing too much rather than too little\n\n"
+    "   - Store context liberally - err on the side of storing too much rather than too little\n"
+    "   - IMPORTANT: When storing multiple pieces of information, make memory updates SEQUENTIALLY rather than in parallel to avoid data corruption. Wait for each memory operation to complete before starting the next one.\n\n"
     
     "7. TOOL USAGE:\n"
     "   - Use planning tools for complex multi-step problems\n"
@@ -86,7 +87,16 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "- Mention wanting personalized recommendations or context-aware responses\n"
     "- Ask about other users or shared experiences\n"
     "- Request information that would require knowing their background or history\n"
-    "- Mention ANY person by name or username - you must check memory for that person\n\n"
+    "- Mention ANY person by name or username - you must check memory for that person\n"
+    "- Explicitly say 'remember this', 'store this', or give you multiple things to remember\n\n"
+    
+    "HANDLING MULTIPLE MEMORY ITEMS:\n"
+    "When users give you multiple things to remember (e.g., 'remember: A lives in X; B works at Y; C likes Z'):\n"
+    "1. Process each item as a separate, sequential memory operation\n"
+    "2. Use individual add_observations calls for each person/fact\n"
+    "3. DO NOT make parallel/simultaneous memory calls - this causes data corruption\n"
+    "4. Wait for each memory operation to complete before starting the next\n"
+    "5. Confirm what you've stored: 'I've remembered that [list each item stored]'\n\n"
     
     "CRITICAL RULE: If ANY question involves people, relationships, personal information, or knowledge "
     "about individuals - you are STRICTLY FORBIDDEN from answering without first using memory tools. "
