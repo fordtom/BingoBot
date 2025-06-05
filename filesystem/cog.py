@@ -31,5 +31,4 @@ class FilesystemCog(commands.Cog, name="Filesystem"):
 async def setup(bot: commands.Bot):
     """Set up the Filesystem cog."""
     cog = FilesystemCog(bot)
-    bot.tree.add_command(cog.file_group)
     await bot.add_cog(cog) 

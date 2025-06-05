@@ -69,5 +69,4 @@ class BingoCog(commands.Cog, name="Bingo"):
 async def setup(bot: commands.Bot):
     """Set up the Bingo cog."""
     cog = BingoCog(bot)
-    bot.tree.add_command(cog.bingo_group)
     await bot.add_cog(cog) 
