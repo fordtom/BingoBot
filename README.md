@@ -11,7 +11,10 @@ BingoBot/                # Root directory
 ├── ai/                  # AI integration module
 │   ├── commands/        # AI-specific commands
 │   ├── prompts.py       # System prompts for the assistant
-│   ├── utils.py         # Helper utilities (mention & MCP handling)
+│   ├── utils.py         # Helper utilities (MCP handling)
+│   └── __init__.py      # Module initialization
+├── utils/               # General utilities
+│   ├── discord_utils.py # Mention conversion helpers
 │   └── __init__.py      # Module initialization
 ├── filesystem/          # File upload & management module
 │   ├── commands/        # /file commands
