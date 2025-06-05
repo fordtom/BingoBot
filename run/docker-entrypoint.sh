@@ -27,4 +27,4 @@ echo "MCP_SERVER_TIMEOUT: $MCP_SERVER_TIMEOUT"
 # Start the Python bot which will use OpenAI Agents SDK with local MCP servers
 echo -e "\n=== Starting Discord bot with OpenAI Agents SDK ===" 
 echo "MCP servers will be launched on-demand by the Agents SDK via stdio"
-python -u bot.py 2>&1 | tee /data/bot.log
+python -u bot.py

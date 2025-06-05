@@ -1,13 +1,6 @@
 #!/bin/bash
 
-echo "=== Bot Debug Log ==="
-if [ -f "./data/bot-debug.log" ]; then
-    tail -n 50 ./data/bot-debug.log
-else
-    echo "No bot-debug.log found"
-fi
-
-echo -e "\n=== Bot Output Log ==="
+echo "=== Bot Log ==="
 if [ -f "./data/bot.log" ]; then
     tail -n 50 ./data/bot.log
 else

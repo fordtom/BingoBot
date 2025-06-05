@@ -15,12 +15,11 @@ from utils.env_utils import get_discord_token, get_allowed_channel_id
 from db import get_db
 
 # Configure logging
-log_file = "/data/bot-debug.log" if os.path.exists("/data") else "bot.log"
+log_file = "/data/bot.log" if os.path.exists("/data") else "bot.log"
 logging.basicConfig(
     level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
         logging.FileHandler(log_file)
     ]
 )
