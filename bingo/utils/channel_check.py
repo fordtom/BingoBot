@@ -4,7 +4,7 @@ Utility for checking if commands are run in the correct channel.
 
 import discord
 from dotenv import load_dotenv
-from .env_utils import get_allowed_channel_id
+from utils.env_utils import get_allowed_channel_id
 
 # Load environment variables if not already loaded
 load_dotenv()
