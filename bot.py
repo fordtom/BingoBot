@@ -59,8 +59,13 @@ async def on_ready():
     # Initialize the database
     await get_db()
     
-    # MCP servers are now handled via HTTP proxy - no manual connection needed
-    logger.info("Using native OpenAI MCP integration via HTTP proxy")
+    # Initialize MCP servers once for the agent interface
+    try:
+        from ai.interface import get_mcp_servers
+        await get_mcp_servers()
+        logger.info("MCP servers initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize MCP servers: {e}")
     
     # Register bingo commands
     bingo.setup_bingo_commands(bot)
