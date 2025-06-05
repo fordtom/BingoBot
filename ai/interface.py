@@ -2,7 +2,7 @@ import discord
 import logging
 from collections import deque
 from ai.prompts import DISCORD_BOT_SYSTEM_PROMPT
-from ai.utils import resolve_mentions, restore_mentions
+from utils.discord_utils import resolve_mentions, restore_mentions
 
 logger = logging.getLogger(__name__)
 
