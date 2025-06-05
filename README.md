@@ -10,29 +10,38 @@ The bot uses a modular architecture centered around the bingo game module.
 BingoBot/                # Root directory
 ├── ai/                  # AI integration module
 │   ├── commands/        # AI-specific commands
+│   ├── cog.py           # Discord extension
+│   ├── interface.py     # Agent interface
 │   ├── prompts.py       # System prompts for the assistant
 │   ├── utils.py         # Helper utilities (MCP handling)
-│   └── __init__.py      # Module initialization
-├── utils/               # General utilities
-│   ├── discord_utils.py # Mention conversion helpers
-│   └── __init__.py      # Module initialization
-├── filesystem/          # File upload & management module
-│   ├── commands/        # /file commands
-│   └── __init__.py      # Module initialization
+│   └── __init__.py
 ├── bingo/               # Bingo game module
 │   ├── commands/        # Bingo-specific commands
-│   ├── models/          # Bingo-specific models
-│   ├── utils/           # Bingo-specific utilities
-│   └── __init__.py      # Module initialization
+│   ├── models/          # Bingo-specific data models
+│   ├── utils/           # Bingo-related utilities
+│   ├── cog.py           # Discord extension
+│   └── __init__.py
+├── filesystem/          # File upload & management module
+│   ├── commands/        # /file commands
+│   ├── cog.py           # Discord extension
+│   └── __init__.py
 ├── db/                  # Database connection
-├── bot.py               # Main bot entry point
-├── docker-compose.yml   # Docker configuration
+│   ├── database.py      # SQLite helper
+│   └── __init__.py
+├── utils/               # General utilities
+│   ├── discord_utils.py # Mention conversion helpers
+│   ├── env_utils.py     # Environment helpers
+│   └── __init__.py
 ├── run/                 # Utility scripts
-│   ├── docker-entrypoint.sh # Startup script for containers
+│   ├── docker-entrypoint.sh
 │   ├── setup.sh
 │   ├── update.sh
-│   └── view-logs.sh     # Helper script to tail logs
-├── pyproject.toml       # Project configuration and dependencies
+│   └── view-logs.sh
+├── tests/               # Unit tests
+├── bot.py               # Main bot entry point
+├── docker-compose.yml   # Docker configuration
+├── Dockerfile           # Docker build instructions
+├── pyproject.toml       # Project dependencies
 ├── uv.lock              # Frozen dependency versions
 └── data/                # Storage for database files
 ```
