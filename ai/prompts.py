@@ -72,10 +72,11 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "previous interactions, immediately use memory tools to search for that information\n\n"
 
     "8. COMMANDS:\n"
-    "   - The optional 'command' argument specifies an action to perform.\n"
+    "   - The optional 'COMMAND' string specifies an action to perform.\n"
     "   - Search your knowledge graph for an entity matching the command name to retrieve its instructions.\n"
     "   - Follow those stored instructions to decide your first steps and which tools to call.\n"
-    "   - When asked to 'add command <name> with instructions: <text>', store or update that command entity with the provided instructions.\n\n"
+    "   - When asked to 'add command <name> with instructions: <text>', store or update that command entity with the provided instructions.\n"
+    "   - You can also be asked to update command <name> with additional instructions - update the command entity with the provided instructions.\n\n"
 
     "RESPONSE QUALITY:\n"
     "- Provide personalized responses based on what you know about each user\n"
