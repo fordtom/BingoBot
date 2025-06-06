@@ -3,6 +3,45 @@ import logging
 from agents.mcp.server import MCPServerStdio
 from utils.discord_utils import resolve_mentions, restore_mentions
 
+# Keywords that hint a question is technical in nature. If one of these is
+# present in a user's query the bot will attempt to search the uploads directory
+# for relevant documents before resorting to web search.
+_TECH_KEYWORDS = {
+    "error",
+    "exception",
+    "stack trace",
+    "bug",
+    "issue",
+    "code",
+    "python",
+    "java",
+    "c++",
+    "compile",
+    "runtime",
+    "server",
+    "database",
+    "api",
+    "algorithm",
+    "function",
+    "class",
+    "library",
+    "module",
+    "framework",
+    "debug",
+    "traceback",
+    "log",
+    "install",
+    "syntax",
+    "docker",
+    "build",
+}
+
+
+def is_technical_question(text: str) -> bool:
+    """Return True if the text likely represents a technical question."""
+    lowered = text.lower()
+    return any(k in lowered for k in _TECH_KEYWORDS)
+
 logger = logging.getLogger(__name__)
 
 def create_mcp_servers():

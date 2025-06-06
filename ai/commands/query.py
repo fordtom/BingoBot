@@ -2,6 +2,7 @@
 import discord
 import logging
 from ai import interface
+from ai.utils import is_technical_question
 
 logger = logging.getLogger(__name__)
 
@@ -10,10 +11,18 @@ async def execute(interaction: discord.Interaction, question: str, files: str | 
     logger.info(f"AI query from {interaction.user}: {question} files='{files}'")
     await interaction.response.defer()
     try:
+        instruction = None
         if files:
             instruction = (
                 f"CRITICAL INSTRUCTION: First search the filesystem for '{files}' and read all files you find before answering."
             )
+        elif is_technical_question(question):
+            instruction = (
+                "CRITICAL INSTRUCTION: Search the /data/uploads directory for relevant documents "
+                "and read anything that might help before answering. If nothing is found, continue normally."
+            )
+
+        if instruction:
             ai_response = await interface.ask_question(
                 interaction, question, prepend_instruction=instruction
             )
