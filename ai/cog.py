@@ -18,13 +18,11 @@ class AICog(commands.Cog, name="AI"):
     @app_commands.command(name="ask", description="Ask a question to the AI")
     @app_commands.describe(
         question="The question you want to ask",
-        files="String to search for in the filesystem before answering",
+        command="Optional command name with special instructions",
     )
-    async def cmd_ask(
-        self, interaction: discord.Interaction, question: str, files: str | None = None
-    ):
+    async def cmd_ask(self, interaction: discord.Interaction, question: str, command: str | None = None):
         logger.info(f"Received /ask command from {interaction.user}")
-        await query.execute(interaction, question, files)
+        await query.execute(interaction, question, command)
 
 async def setup(bot: commands.Bot):
     """Set up the AI cog."""
