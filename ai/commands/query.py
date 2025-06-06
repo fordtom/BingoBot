@@ -5,17 +5,16 @@ from ai import interface
 
 logger = logging.getLogger(__name__)
 
-async def execute(interaction: discord.Interaction, question: str, files: str | None = None):
+async def execute(interaction: discord.Interaction, question: str, command: str | None = None):
     """Handle the /ask command."""
-    logger.info(f"AI query from {interaction.user}: {question} files='{files}'")
+    logger.info(f"AI query from {interaction.user}: {question} command='{command}'")
     await interaction.response.defer()
     try:
         instruction = None
-        if files:
-            instruction = (
-                "CRITICAL INSTRUCTION: Search the /data/uploads directory for relevant documents "
-                "and read anything that might help before answering. If nothing is found, continue normally."
-            )
+        if command:
+            instruction = f"COMMAND: {command}"
+            if command == "files":
+                instruction += "\nSearch the /data/uploads directory for relevant documents and read anything that might help before answering. If nothing is found, continue normally."
 
         ai_response = await interface.ask_question(interaction, question, prepend_instruction=instruction)
         formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"

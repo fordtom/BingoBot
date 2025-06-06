@@ -118,8 +118,8 @@ The AI module uses the OpenAI **Agents** SDK with several local MCP servers to p
 
 **Commands**
 
-- `/ask <question> [files]` – Ask the assistant anything. If `files` is provided,
-  the assistant first searches `/data/uploads` for relevant documents. The reply is posted as a follow‑up message mentioning you.
+- `/ask <question> [command]` – Ask the assistant anything. If `command` is provided,
+  the assistant consults its knowledge graph for instructions on that command. For example, the `files` command searches `/data/uploads` for relevant documents before replying. The answer is posted as a follow‑up message mentioning you.
 
 **Environment**
 

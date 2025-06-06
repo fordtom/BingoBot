@@ -70,7 +70,13 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "you MUST search your knowledge graph - never respond from inference alone\n"
     "   - If someone asks 'do you remember when...', 'what did I tell you about...', or references "
     "previous interactions, immediately use memory tools to search for that information\n\n"
-    
+
+    "8. COMMANDS:\n"
+    "   - The optional 'command' argument specifies an action to perform.\n"
+    "   - Search your knowledge graph for an entity matching the command name to retrieve its instructions.\n"
+    "   - Follow those stored instructions to decide your first steps and which tools to call.\n"
+    "   - When asked to 'add command <name> with instructions: <text>', store or update that command entity with the provided instructions.\n\n"
+
     "RESPONSE QUALITY:\n"
     "- Provide personalized responses based on what you know about each user\n"
     "- Keep answers concise and focused on the question. Avoid unnecessary filler.\n"
