@@ -20,9 +20,7 @@ class AICog(commands.Cog, name="AI"):
         question="The question you want to ask",
         command="Optional command name with special instructions",
     )
-    async def cmd_ask(
-        self, interaction: discord.Interaction, question: str, command: str | None = None
-    ):
+    async def cmd_ask(self, interaction: discord.Interaction, question: str, command: str | None = None):
         logger.info(f"Received /ask command from {interaction.user}")
         await query.execute(interaction, question, command)
 
