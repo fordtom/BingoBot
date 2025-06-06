@@ -17,12 +17,7 @@ async def execute(interaction: discord.Interaction, question: str, files: str | 
                 "and read anything that might help before answering. If nothing is found, continue normally."
             )
 
-        if instruction:
-            ai_response = await interface.ask_question(
-                interaction, question, prepend_instruction=instruction
-            )
-        else:
-            ai_response = await interface.ask_question(interaction, question)
+        ai_response = await interface.ask_question(interaction, question, prepend_instruction=instruction)
         formatted_response = f"{interaction.user.mention} Asked: {question}\n\n{ai_response}"
         await interaction.followup.send(formatted_response)
         logger.info(f"AI response to {interaction.user}: {ai_response[:50]}...")
