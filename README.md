@@ -119,10 +119,7 @@ The AI module uses the OpenAI **Agents** SDK with several local MCP servers to p
 **Commands**
 
 - `/ask <question> [files]` – Ask the assistant anything. If `files` is provided,
-  the assistant will first search the repository for matching files and read them
-  before answering. When a question looks technical and no `files` argument is
-  given, the bot automatically searches `/data/uploads` for relevant documents
-  before using web search. The reply is posted as a follow‑up message mentioning you.
+  the assistant first searches `/data/uploads` for relevant documents. The reply is posted as a follow‑up message mentioning you.
 
 **Environment**
 

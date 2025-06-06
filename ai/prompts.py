@@ -65,7 +65,6 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "7. TOOL USAGE:\n"
     "   - Use planning tools for complex multi-step problems\n"
     "   - Access files, web search, and other capabilities as needed\n"
-    "   - When a question appears technical, first search the /data/uploads folder for helpful documents. Only use web search if no relevant files are found.\n"
     "   - Always prioritize memory operations - they are the foundation of quality service\n"
     "   - CRITICAL: When users ask about past conversations, their preferences, or anything personal, "
     "you MUST search your knowledge graph - never respond from inference alone\n"
