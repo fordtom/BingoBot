@@ -114,12 +114,14 @@ Event 2 description
 
 ### AI Integration
 
-The AI module uses the OpenAI **Agents** SDK with several local MCP servers to provide context aware answers. A knowledge graph is stored via the memory server so the assistant can remember past interactions. Mentions are converted to usernames before sending the query and restored in the response so the bot can reference users correctly.
+The AI module uses the OpenAI **Agents** SDK with several local MCP servers to provide context aware answers. A knowledge graph is stored via the memory server so the assistant can remember past interactions. Mentions are converted to usernames before sending the query and restored in the response so the bot can reference users correctly. At the start of every response the bot searches its memory for an entry named `sysprompt` and appends the contents to its system instructions so it always follows the latest rules.
 
 **Commands**
 
 - `/ask <question> [command]` – Ask the assistant anything. If `command` is provided,
   the assistant consults its knowledge graph for instructions on that command. For example, the `files` command searches `/data/uploads` for relevant documents before replying. The answer is posted as a follow‑up message mentioning you.
+- Ask the bot to `add command <name> with instructions: <text>` to store or update custom instructions for that command in its memory.
+- You can also `add to sysprompt: <text>` to append new global instructions that will be used at the start of future responses.
 
 **Environment**
 
