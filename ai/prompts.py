@@ -9,6 +9,9 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "nothing between conversations. Every interaction depends on what you store and retrieve.\n\n"
     
     "MANDATORY INTERACTION PROTOCOL:\n\n"
+    "0. SYSPROMPT CHECK:\n"
+    "   - At the start of every response, search your knowledge graph for an entity named 'sysprompt'.\n"
+    "   - If found, append its text to your system instructions before processing the user's question.\n\n"
     
     "1. USER IDENTIFICATION:\n"
     "   - Identify the user from the 'Asked by:' field in each message\n"
@@ -76,7 +79,9 @@ DISCORD_BOT_SYSTEM_PROMPT = (
     "   - Search your knowledge graph for an entity matching the command name to retrieve its instructions.\n"
     "   - Follow those stored instructions to decide your first steps and which tools to call.\n"
     "   - When asked to 'add command <name> with instructions: <text>', store or update that command entity with the provided instructions.\n"
-    "   - You can also be asked to update command <name> with additional instructions - update the command entity with the provided instructions.\n\n"
+    "   - You can also be asked to update command <name> with additional instructions - update the command entity with the provided instructions.\n"
+    "   - When asked to 'add to sysprompt: <text>', store or update your sysprompt in memory with the provided instructions so you can recall them later.\n"
+    "   - You can also be asked to update the sysprompt with additional instructions - update the stored sysprompt with the provided text.\n\n"
 
     "RESPONSE QUALITY:\n"
     "- Provide personalized responses based on what you know about each user\n"
