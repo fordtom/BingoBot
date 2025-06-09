@@ -20,18 +20,21 @@ async def prepare_user_query(interaction: discord.Interaction, question: str) ->
     """Build the final question with history and mention resolution."""
     question_with_usernames = await resolve_mentions(interaction, question)
     asking_username = interaction.user.name
-    base_question = f"Asked by: {asking_username}\n\n{question_with_usernames}"
+    base_question = f"User: {asking_username}\n\nQuestion:\n{question_with_usernames}"
 
     history_lines = []
     for idx, (q, a) in enumerate(reversed(interaction_history), start=1):
-        history_lines.append(f"previous interaction {idx}:")
-        history_lines.append(f"Q: {q}")
-        history_lines.append(f"A: {a}")
-        history_lines.append("")
+        history_lines.extend(
+            [f"Interaction {idx} (past):", f"Q: {q}", f"A: {a}", ""]
+        )
 
-    history_text = "\n".join(history_lines)
-    if history_text:
-        enhanced_question = f"{history_text}\n{base_question}"
+    if history_lines:
+        history_text = "\n".join(history_lines)
+        enhanced_question = (
+            f"{base_question}\n\n"
+            "Previous interactions (for reference only, not part of the current question):\n"
+            f"{history_text}"
+        )
     else:
         enhanced_question = base_question
 
