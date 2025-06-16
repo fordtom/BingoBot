@@ -2,7 +2,7 @@
 import discord
 import math
 import logging
-from db import get_db
+from db import get_db_handler
 from bingo.utils.channel_check import require_allowed_channel
 
 from bingo.models.event import EventStatus
@@ -31,9 +31,9 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
     logger.info(f"VOTE: Starting vote command - user_id={interaction.user.id}, event_id={event_id}, game_id={game_id}")
     
     try:
-        logger.info("VOTE: Getting database connection")
-        db = await get_db()
-        logger.info("VOTE: Database connection obtained")
+        logger.info("VOTE: Getting database handler")
+        db = await get_db_handler()
+        logger.info("VOTE: Database handler obtained")
         
         # Get the game (active game if game_id is None)
         logger.info("VOTE: Getting/validating game")
@@ -56,11 +56,10 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         
         # Get the event
         logger.info(f"VOTE: Getting event - game_id={game_id}, event_id={event_id}")
-        async with db.db.execute(
+        event = await db.fetchone(
             "SELECT * FROM events WHERE game_id = ? AND event_id = ?", 
             (game_id, event_id)
-        ) as cursor:
-            event = await cursor.fetchone()
+        )
         
         if not event:
             logger.info("VOTE: Event not found, sending error")
@@ -82,11 +81,10 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         
         # Check if the user has already voted for this event
         logger.info("VOTE: Checking for existing vote")
-        async with db.db.execute(
+        existing_vote = await db.fetchone(
             "SELECT * FROM votes WHERE event_id = ? AND game_id = ? AND user_id = ?", 
             (event_id, game_id, interaction.user.id)
-        ) as cursor:
-            existing_vote = await cursor.fetchone()
+        )
         
         if existing_vote:
             logger.info("VOTE: User already voted, sending error")
@@ -97,32 +95,29 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         
         # Add the vote
         logger.info("VOTE: Inserting vote into database")
-        await db.db.execute(
+        await db.execute_and_commit(
             "INSERT INTO votes (event_id, game_id, user_id) VALUES (?, ?, ?)",
             (event_id, game_id, interaction.user.id)
         )
-        await db.db.commit()
         logger.info("VOTE: Vote inserted and committed")
         
         # Count the total number of players in the game
         logger.info("VOTE: Counting players in game")
-        async with db.db.execute(
+        player_count_row = await db.fetchone(
             "SELECT COUNT(*) as player_count FROM boards WHERE game_id = ?", 
             (game_id,)
-        ) as cursor:
-            player_count_row = await cursor.fetchone()
-            player_count = player_count_row["player_count"]
+        )
+        player_count = player_count_row["player_count"]
         
         logger.info(f"VOTE: Player count = {player_count}")
         
         # Count votes for this event
         logger.info("VOTE: Counting votes for event")
-        async with db.db.execute(
+        vote_count_row = await db.fetchone(
             "SELECT COUNT(*) as vote_count FROM votes WHERE event_id = ? AND game_id = ?", 
             (event_id, game_id)
-        ) as cursor:
-            vote_count_row = await cursor.fetchone()
-            vote_count = vote_count_row["vote_count"]
+        )
+        vote_count = vote_count_row["vote_count"]
         
         logger.info(f"VOTE: Vote count = {vote_count}")
         
@@ -139,11 +134,10 @@ async def execute(interaction: discord.Interaction, event_id: int, game_id: int 
         if vote_count >= consensus_threshold:
             logger.info("VOTE: Consensus reached, closing event")
             # Mark the event as closed
-            await db.db.execute(
+            await db.execute_and_commit(
                 "UPDATE events SET status = ? WHERE game_id = ? AND event_id = ?",
                 (EventStatus.CLOSED.name, game_id, event_id)
             )
-            await db.db.commit()
             logger.info("VOTE: Event status updated to closed")
             
             logger.info("VOTE: Sending consensus reached message")

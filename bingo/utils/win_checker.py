@@ -2,7 +2,7 @@
 import discord
 from typing import List, Dict, Any
 
-from db import get_db
+from db import get_db_handler
 from bingo.models.event import EventStatus
 
 
@@ -11,7 +11,7 @@ async def check_for_winners(db, game_id: int, grid_size: int) -> List[int]:
     Check if any player has all events on their board marked as closed.
     
     Args:
-        db: Database connection
+        db: Database handler
         game_id: ID of the game to check
         grid_size: Size of the game grid
         
@@ -19,11 +19,10 @@ async def check_for_winners(db, game_id: int, grid_size: int) -> List[int]:
         A list of winners (user IDs), or an empty list if no winners yet
     """
     # Get all boards for this game
-    async with db.db.execute(
+    boards = await db.fetchall(
         "SELECT board_id, user_id FROM boards WHERE game_id = ?", 
         (game_id,)
-    ) as cursor:
-        boards = await cursor.fetchall()
+    )
     
     winners = []
     
@@ -36,7 +35,7 @@ async def check_for_winners(db, game_id: int, grid_size: int) -> List[int]:
         total_squares = grid_size * grid_size
         
         # Count closed squares
-        async with db.db.execute(
+        count_row = await db.fetchone(
             """
             SELECT COUNT(*) as closed_count
             FROM board_squares bs
@@ -44,9 +43,8 @@ async def check_for_winners(db, game_id: int, grid_size: int) -> List[int]:
             WHERE bs.board_id = ? AND e.status = ?
             """, 
             (game_id, board_id, EventStatus.CLOSED.name)
-        ) as cursor:
-            count_row = await cursor.fetchone()
-            closed_count = count_row["closed_count"]
+        )
+        closed_count = count_row["closed_count"]
         
         # If all squares are closed, add user to winners
         if closed_count == total_squares:
