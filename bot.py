@@ -54,6 +54,8 @@ async def load_cogs():
     logger.info("AI cog loaded")
     await bot.load_extension('filesystem.cog')
     logger.info("Filesystem cog loaded")
+    await bot.load_extension('monitoring.cog')
+    logger.info("Monitoring cog loaded")
 
 
 @bot.event
