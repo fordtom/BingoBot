@@ -2,7 +2,7 @@
 import discord
 import math
 
-from db import get_db
+from db import get_db_handler
 from bingo.utils.channel_check import require_allowed_channel
 from bingo.models.event import EventStatus
 from bingo.utils.db_utils import get_or_validate_game
@@ -19,30 +19,28 @@ async def execute(interaction: discord.Interaction, game_id: int = None):
         game_id: ID of the game to list events for (optional, uses active game if not provided)
     """
         
-    db = await get_db()
+    db = await get_db_handler()
     
     # Get the game (active game if game_id is None)
-    game = await get_or_validate_game(interaction, game_id)
+    game = await get_or_validate_game(interaction, game_id, db)
     if not game:
         return  # Error message already sent by get_or_validate_game
         
     game_id = game["game_id"]
     
     # Get events for the game
-    async with db.db.execute("SELECT * FROM events WHERE game_id = ? ORDER BY event_id", (game_id,)) as cursor:
-        events = await cursor.fetchall()
+    events = await db.fetchall("SELECT * FROM events WHERE game_id = ? ORDER BY event_id", (game_id,))
     
     if not events:
         await interaction.response.send_message(f"No events found for game '{game['title']}' (ID: {game_id}).")
         return
     
     # Count total players in the game
-    async with db.db.execute(
+    player_count_row = await db.fetchone(
         "SELECT COUNT(*) as player_count FROM boards WHERE game_id = ?", 
         (game_id,)
-    ) as cursor:
-        player_count_row = await cursor.fetchone()
-        player_count = player_count_row["player_count"]
+    )
+    player_count = player_count_row["player_count"]
     
     # Calculate consensus threshold - for small games, require all players
     # For larger games, use the percentage from config
@@ -56,12 +54,11 @@ async def execute(interaction: discord.Interaction, game_id: int = None):
     
     for e in events:
         # Get vote count for this event
-        async with db.db.execute(
+        vote_count_row = await db.fetchone(
             "SELECT COUNT(*) as vote_count FROM votes WHERE event_id = ? AND game_id = ?", 
             (e['event_id'], game_id)
-        ) as cursor:
-            vote_count_row = await cursor.fetchone()
-            vote_count = vote_count_row["vote_count"]
+        )
+        vote_count = vote_count_row["vote_count"]
         
         # Clean status indicator
         if e['status'] == EventStatus.CLOSED.name:

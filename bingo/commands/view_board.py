@@ -2,7 +2,7 @@
 import discord
 from bingo.utils.board_image import generate_bingo_board_image
 
-from db import get_db
+from db import get_db_handler
 from bingo.utils.channel_check import require_allowed_channel
 from bingo.utils.db_utils import get_or_validate_game, check_user_in_game, send_error_message
 from bingo.utils.config import EMBED_COLOR_PRIMARY
@@ -21,7 +21,7 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
     # Defer response to give us time to process
     await interaction.response.defer(ephemeral=False)
     
-    db = await get_db()
+    db = await get_db_handler()
     
     # Get active game or validate provided game_id
     game = await get_or_validate_game(interaction, game_id, db)
@@ -39,14 +39,13 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
         return
     
     # Get board info
-    async with db.db.execute(
+    board = await db.fetchone(
         "SELECT * FROM boards WHERE game_id = ? AND user_id = ?", 
         (game_id, user.id)
-    ) as cursor:
-        board = await cursor.fetchone()
+    )
     
     # Get the board squares
-    async with db.db.execute(
+    squares = await db.fetchall(
         """
         SELECT bs.row, bs.column, bs.event_id, e.description, e.status 
         FROM board_squares bs
@@ -55,8 +54,7 @@ async def execute(interaction: discord.Interaction, user: discord.Member, game_i
         ORDER BY bs.row, bs.column
         """, 
         (game_id, board["board_id"])
-    ) as cursor:
-        squares = await cursor.fetchall()
+    )
     
     if not squares:
         await send_error_message(

@@ -1,10 +1,7 @@
 """Command to initialize a new empty bingo game."""
 import discord
-from db import get_db
+from db import get_db_handler
 from bingo.utils.channel_check import require_allowed_channel
-
-from bingo.models.event import EventStatus
-
 
 @require_allowed_channel
 async def execute(interaction: discord.Interaction):
@@ -18,18 +15,15 @@ async def execute(interaction: discord.Interaction):
     # Defer response to give us time to process
     await interaction.response.defer(ephemeral=False)
     
-    db = await get_db()
+    db = await get_db_handler()
     
     try:
         # Create a new game with default values
-        async with db.db.execute(
+        cursor = await db.execute_and_commit(
             "INSERT INTO games (title, grid_size) VALUES (?, ?)",
             (f"Game created by {interaction.user.display_name}", 4)  # Default grid size of 4
-        ) as cursor:
-            new_game_id = cursor.lastrowid
-        
-        # Commit the changes
-        await db.db.commit()
+        )
+        new_game_id = cursor.lastrowid
         
         # Create a response embed
         embed = discord.Embed(
@@ -45,12 +39,10 @@ async def execute(interaction: discord.Interaction):
         )
         
         # Set this as the active game if no active game exists
-        cursor = await db.db.execute("SELECT game_id FROM games WHERE is_active = 1")
-        active_game = await cursor.fetchone()
+        active_game = await db.fetchone("SELECT game_id FROM games WHERE is_active = 1")
         
         if not active_game:
-            await db.db.execute("UPDATE games SET is_active = 1 WHERE game_id = ?", (new_game_id,))
-            await db.db.commit()
+            await db.execute_and_commit("UPDATE games SET is_active = 1 WHERE game_id = ?", (new_game_id,))
             embed.add_field(name="Status", value="✅ Set as active game", inline=False)
         else:
             embed.add_field(
@@ -62,9 +54,6 @@ async def execute(interaction: discord.Interaction):
         await interaction.followup.send(embed=embed)
         
     except Exception as e:
-        # Rollback transaction on error
-        await db.db.rollback()
-        
         # Send error message
         if interaction.response.is_done():
             await interaction.followup.send(
