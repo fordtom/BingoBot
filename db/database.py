@@ -33,6 +33,15 @@ class DatabaseHandler:
         self.db = await aiosqlite.connect(self.db_path)
         self.db.row_factory = aiosqlite.Row
         
+        # Set SQLite pragmas for better concurrency
+        await self.db.execute("PRAGMA journal_mode=WAL")
+        await self.db.execute("PRAGMA synchronous=NORMAL") 
+        await self.db.execute("PRAGMA cache_size=10000")
+        await self.db.execute("PRAGMA temp_store=MEMORY")
+        await self.db.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
+        
+        logger.info("DATABASE: SQLite pragmas set")
+        
         # Create tables
         await self.db.execute('''
         CREATE TABLE IF NOT EXISTS games (
@@ -168,26 +177,51 @@ class DatabaseHandler:
         Returns:
             Cursor with results
         """
+        logger.debug(f"DATABASE: Acquiring lock for execute_and_commit")
         async with self.lock:
+            logger.debug(f"DATABASE: Lock acquired for execute_and_commit")
             if not self._initialized:
                 await self.initialize()
                 
             logger.debug(f"DATABASE: Execute and commit: {query[:50]}...")
-            if params:
-                cursor = await self.db.execute(query, params)
-            else:
-                cursor = await self.db.execute(query)
-            await self.db.commit()
-            return cursor
+            try:
+                if params:
+                    cursor = await self.db.execute(query, params)
+                else:
+                    cursor = await self.db.execute(query)
+                logger.debug("DATABASE: Query executed, attempting commit")
+                await self.db.commit()
+                logger.debug("DATABASE: Commit successful")
+                return cursor
+            except Exception as e:
+                logger.error(f"DATABASE: Error in execute_and_commit - {type(e).__name__}: {str(e)}")
+                logger.debug("DATABASE: Attempting rollback")
+                try:
+                    await self.db.rollback()
+                    logger.debug("DATABASE: Rollback successful")
+                except Exception as rollback_error:
+                    logger.error(f"DATABASE: Rollback failed - {type(rollback_error).__name__}: {str(rollback_error)}")
+                raise
+            finally:
+                logger.debug("DATABASE: Releasing lock for execute_and_commit")
     
     async def commit(self):
         """Commit the current transaction."""
+        logger.debug(f"DATABASE: Acquiring lock for commit")
         async with self.lock:
+            logger.debug(f"DATABASE: Lock acquired for commit")
             if not self._initialized:
                 await self.initialize()
                 
             logger.debug("DATABASE: Committing transaction")
-            await self.db.commit()
+            try:
+                await self.db.commit()
+                logger.debug("DATABASE: Commit successful")
+            except Exception as e:
+                logger.error(f"DATABASE: Error in commit - {type(e).__name__}: {str(e)}")
+                raise
+            finally:
+                logger.debug("DATABASE: Releasing lock for commit")
     
     async def close(self):
         """Close the database connection."""
@@ -306,10 +340,7 @@ class Database:
         await self.db.commit()
 
 
-async def get_db() -> Database:
-    """Get the database instance (deprecated - use get_db_handler instead)."""
-    global _db
-    if _db is None:
-        _db = Database()
-        await _db.initialize()
-    return _db
+async def get_db() -> DatabaseHandler:
+    """Get the database instance (now returns DatabaseHandler for consistency)."""
+    # Route all database access through the single handler
+    return await get_db_handler()
