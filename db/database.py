@@ -201,6 +201,9 @@ class DatabaseHandler:
 # Singleton database handler
 _db_handler = None
 
+# Legacy database instance
+_db = None
+
 
 async def get_db_handler() -> DatabaseHandler:
     """Get the singleton database handler."""
@@ -305,8 +308,8 @@ class Database:
 
 async def get_db() -> Database:
     """Get the database instance (deprecated - use get_db_handler instead)."""
-    global _db_handler
-    if _db_handler is None:
-        _db_handler = Database()
-        await _db_handler.initialize()
-    return _db_handler
+    global _db
+    if _db is None:
+        _db = Database()
+        await _db.initialize()
+    return _db
