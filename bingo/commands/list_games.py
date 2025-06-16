@@ -3,7 +3,7 @@ import discord
 import sqlite3
 from typing import List, Tuple
 
-from db import get_db
+from db import get_db_handler
 from bingo.utils.channel_check import require_allowed_channel
 from bingo.utils.db_utils import get_active_game
 from bingo.models.event import EventStatus
@@ -21,8 +21,8 @@ async def execute(interaction: discord.Interaction):
     # Defer the response since this might take a moment
     await interaction.response.defer(ephemeral=False)
     
-    # Get the database connection
-    db = await get_db()
+    # Get the database handler
+    db = await get_db_handler()
     
     try:
         # Get the active game for highlighting
@@ -30,7 +30,7 @@ async def execute(interaction: discord.Interaction):
         active_game_id = active_game['game_id'] if active_game else None
         
         # Fetch all games
-        cursor = await db.db.execute(
+        games = await db.fetchall(
             """
             SELECT g.game_id as id, g.title, g.grid_size, COUNT(DISTINCT e.event_id) as event_count
             FROM games g
@@ -39,7 +39,6 @@ async def execute(interaction: discord.Interaction):
             ORDER BY g.game_id DESC
             """
         )
-        games = await cursor.fetchall()
         
         # For each game, get the count of closed events
         games_with_stats: List[Tuple[int, str, int, int, int]] = []
@@ -47,7 +46,7 @@ async def execute(interaction: discord.Interaction):
             game_id, title, grid_size, event_count = game
 
             # Get count of closed events
-            cursor = await db.db.execute(
+            closed_result = await db.fetchone(
                 """
                 SELECT COUNT(DISTINCT e.event_id) as closed_count
                 FROM events e
@@ -55,11 +54,10 @@ async def execute(interaction: discord.Interaction):
                 """,
                 (game_id, EventStatus.CLOSED.name)
             )
-            closed_result = await cursor.fetchone()
             closed_count = closed_result[0] if closed_result else 0
             
             # Get player count
-            cursor = await db.db.execute(
+            player_result = await db.fetchone(
                 """
                 SELECT COUNT(DISTINCT user_id) as player_count
                 FROM boards
@@ -67,7 +65,6 @@ async def execute(interaction: discord.Interaction):
                 """,
                 (game_id,)
             )
-            player_result = await cursor.fetchone()
             player_count = player_result[0] if player_result else 0
             
             games_with_stats.append((game_id, title, grid_size, closed_count, event_count, player_count))

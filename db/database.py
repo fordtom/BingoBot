@@ -1,9 +1,6 @@
 """Database connection and schema for the Discord bot."""
-import os
 import aiosqlite
-import asyncio
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +125,6 @@ class DatabaseHandler:
         if not self._initialized:
             await self.initialize()
             
-        logger.debug(f"DATABASE: Fetchone query: {query[:50]}...")
         if params:
             cursor = await self.db.execute(query, params)
         else:
@@ -150,7 +146,6 @@ class DatabaseHandler:
         if not self._initialized:
             await self.initialize()
             
-        logger.debug(f"DATABASE: Fetchall query: {query[:50]}...")
         if params:
             cursor = await self.db.execute(query, params)
         else:
@@ -172,24 +167,19 @@ class DatabaseHandler:
         if not self._initialized:
             await self.initialize()
             
-        logger.debug(f"DATABASE: Execute and commit: {query[:50]}...")
         try:
             if params:
                 cursor = await self.db.execute(query, params)
             else:
                 cursor = await self.db.execute(query)
-            logger.debug("DATABASE: Query executed, attempting commit")
             await self.db.commit()
-            logger.debug("DATABASE: Commit successful")
             return cursor
         except Exception as e:
-            logger.error(f"DATABASE: Error in execute_and_commit - {type(e).__name__}: {str(e)}")
-            logger.debug("DATABASE: Attempting rollback")
+            logger.error(f"Database error in execute_and_commit: {type(e).__name__}: {str(e)}")
             try:
                 await self.db.rollback()
-                logger.debug("DATABASE: Rollback successful")
             except Exception as rollback_error:
-                logger.error(f"DATABASE: Rollback failed - {type(rollback_error).__name__}: {str(rollback_error)}")
+                logger.error(f"Rollback failed: {type(rollback_error).__name__}: {str(rollback_error)}")
             raise
     
     async def commit(self):
@@ -197,12 +187,10 @@ class DatabaseHandler:
         if not self._initialized:
             await self.initialize()
             
-        logger.debug("DATABASE: Committing transaction")
         try:
             await self.db.commit()
-            logger.debug("DATABASE: Commit successful")
         except Exception as e:
-            logger.error(f"DATABASE: Error in commit - {type(e).__name__}: {str(e)}")
+            logger.error(f"Database error in commit: {type(e).__name__}: {str(e)}")
             raise
     
     async def close(self):
