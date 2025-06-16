@@ -7,8 +7,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Database path - always use /data directory
-DATABASE_PATH = "/data/bingobot.db"
+# Database path - use local mounted directory instead of network storage
+DATABASE_PATH = "/db/bingobot.db"
 
 class DatabaseHandler:
     """Single database handler that maintains one connection and ensures sequential access."""
@@ -21,7 +21,6 @@ class DatabaseHandler:
         """
         self.db_path = db_path
         self.db = None
-        self.lock = asyncio.Lock()
         self._initialized = False
         
     async def initialize(self):
@@ -33,12 +32,8 @@ class DatabaseHandler:
         self.db = await aiosqlite.connect(self.db_path)
         self.db.row_factory = aiosqlite.Row
         
-        # Set SQLite pragmas for better concurrency
-        await self.db.execute("PRAGMA journal_mode=WAL")
-        await self.db.execute("PRAGMA synchronous=NORMAL") 
-        await self.db.execute("PRAGMA cache_size=10000")
-        await self.db.execute("PRAGMA temp_store=MEMORY")
-        await self.db.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
+        # Keep minimal pragmas - remove potentially problematic ones
+        await self.db.execute("PRAGMA busy_timeout=5000")  # Reduced timeout
         
         logger.info("DATABASE: SQLite pragmas set")
         
@@ -110,16 +105,15 @@ class DatabaseHandler:
         Returns:
             Cursor with results
         """
-        async with self.lock:
-            if not self._initialized:
-                await self.initialize()
-                
-            logger.debug(f"DATABASE: Executing query: {query[:50]}...")
-            if params:
-                cursor = await self.db.execute(query, params)
-            else:
-                cursor = await self.db.execute(query)
-            return cursor
+        if not self._initialized:
+            await self.initialize()
+            
+        logger.debug(f"DATABASE: Executing query: {query[:50]}...")
+        if params:
+            cursor = await self.db.execute(query, params)
+        else:
+            cursor = await self.db.execute(query)
+        return cursor
     
     async def fetchone(self, query, params=None):
         """Execute a query and fetch one result.
@@ -131,18 +125,17 @@ class DatabaseHandler:
         Returns:
             Single row result or None
         """
-        async with self.lock:
-            if not self._initialized:
-                await self.initialize()
-                
-            logger.debug(f"DATABASE: Fetchone query: {query[:50]}...")
-            if params:
-                cursor = await self.db.execute(query, params)
-            else:
-                cursor = await self.db.execute(query)
-            result = await cursor.fetchone()
-            await cursor.close()
-            return result
+        if not self._initialized:
+            await self.initialize()
+            
+        logger.debug(f"DATABASE: Fetchone query: {query[:50]}...")
+        if params:
+            cursor = await self.db.execute(query, params)
+        else:
+            cursor = await self.db.execute(query)
+        result = await cursor.fetchone()
+        await cursor.close()
+        return result
     
     async def fetchall(self, query, params=None):
         """Execute a query and fetch all results.
@@ -154,18 +147,17 @@ class DatabaseHandler:
         Returns:
             List of row results
         """
-        async with self.lock:
-            if not self._initialized:
-                await self.initialize()
-                
-            logger.debug(f"DATABASE: Fetchall query: {query[:50]}...")
-            if params:
-                cursor = await self.db.execute(query, params)
-            else:
-                cursor = await self.db.execute(query)
-            results = await cursor.fetchall()
-            await cursor.close()
-            return results
+        if not self._initialized:
+            await self.initialize()
+            
+        logger.debug(f"DATABASE: Fetchall query: {query[:50]}...")
+        if params:
+            cursor = await self.db.execute(query, params)
+        else:
+            cursor = await self.db.execute(query)
+        results = await cursor.fetchall()
+        await cursor.close()
+        return results
     
     async def execute_and_commit(self, query, params=None):
         """Execute a query and commit the transaction.
@@ -177,51 +169,41 @@ class DatabaseHandler:
         Returns:
             Cursor with results
         """
-        logger.debug(f"DATABASE: Acquiring lock for execute_and_commit")
-        async with self.lock:
-            logger.debug(f"DATABASE: Lock acquired for execute_and_commit")
-            if not self._initialized:
-                await self.initialize()
-                
-            logger.debug(f"DATABASE: Execute and commit: {query[:50]}...")
+        if not self._initialized:
+            await self.initialize()
+            
+        logger.debug(f"DATABASE: Execute and commit: {query[:50]}...")
+        try:
+            if params:
+                cursor = await self.db.execute(query, params)
+            else:
+                cursor = await self.db.execute(query)
+            logger.debug("DATABASE: Query executed, attempting commit")
+            await self.db.commit()
+            logger.debug("DATABASE: Commit successful")
+            return cursor
+        except Exception as e:
+            logger.error(f"DATABASE: Error in execute_and_commit - {type(e).__name__}: {str(e)}")
+            logger.debug("DATABASE: Attempting rollback")
             try:
-                if params:
-                    cursor = await self.db.execute(query, params)
-                else:
-                    cursor = await self.db.execute(query)
-                logger.debug("DATABASE: Query executed, attempting commit")
-                await self.db.commit()
-                logger.debug("DATABASE: Commit successful")
-                return cursor
-            except Exception as e:
-                logger.error(f"DATABASE: Error in execute_and_commit - {type(e).__name__}: {str(e)}")
-                logger.debug("DATABASE: Attempting rollback")
-                try:
-                    await self.db.rollback()
-                    logger.debug("DATABASE: Rollback successful")
-                except Exception as rollback_error:
-                    logger.error(f"DATABASE: Rollback failed - {type(rollback_error).__name__}: {str(rollback_error)}")
-                raise
-            finally:
-                logger.debug("DATABASE: Releasing lock for execute_and_commit")
+                await self.db.rollback()
+                logger.debug("DATABASE: Rollback successful")
+            except Exception as rollback_error:
+                logger.error(f"DATABASE: Rollback failed - {type(rollback_error).__name__}: {str(rollback_error)}")
+            raise
     
     async def commit(self):
         """Commit the current transaction."""
-        logger.debug(f"DATABASE: Acquiring lock for commit")
-        async with self.lock:
-            logger.debug(f"DATABASE: Lock acquired for commit")
-            if not self._initialized:
-                await self.initialize()
-                
-            logger.debug("DATABASE: Committing transaction")
-            try:
-                await self.db.commit()
-                logger.debug("DATABASE: Commit successful")
-            except Exception as e:
-                logger.error(f"DATABASE: Error in commit - {type(e).__name__}: {str(e)}")
-                raise
-            finally:
-                logger.debug("DATABASE: Releasing lock for commit")
+        if not self._initialized:
+            await self.initialize()
+            
+        logger.debug("DATABASE: Committing transaction")
+        try:
+            await self.db.commit()
+            logger.debug("DATABASE: Commit successful")
+        except Exception as e:
+            logger.error(f"DATABASE: Error in commit - {type(e).__name__}: {str(e)}")
+            raise
     
     async def close(self):
         """Close the database connection."""

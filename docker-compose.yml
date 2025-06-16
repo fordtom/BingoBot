@@ -7,5 +7,6 @@ services:
       - .env
     volumes:
       - /mnt/nas/1.Users/Raspi:/data
+      - ./database:/db  # Local database storage to avoid NFS locking issues
     # The following is optional: if you want to see logs in real-time
     tty: true
