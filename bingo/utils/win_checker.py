@@ -1,8 +1,7 @@
 """Utility functions for checking bingo win conditions."""
 import discord
-from typing import List, Dict, Any
+from typing import List
 
-from db import get_db_handler
 from bingo.models.event import EventStatus
 
 

@@ -6,8 +6,6 @@ These functions help reduce duplicate code across command implementations.
 import discord
 # Import get_db_handler inside each function to avoid circular imports
 
-from bingo.utils.config import DEFAULT_GRID_SIZE
-
 
 async def get_active_game(db=None):
     """Get the currently active game from the database.
@@ -123,26 +121,7 @@ async def check_user_in_game(game_id, user_id, db=None):
     return result is not None
 
 
-async def get_event_by_id(event_id, game_id, db=None):
-    """Get an event by its ID and game ID.
     
-    Args:
-        event_id: The ID of the event
-        game_id: The ID of the game the event belongs to
-        db: Optional database handler. If not provided, a new handler will be obtained.
-        
-    Returns:
-        dict: The event record or None if the event doesn't exist
-    """
-    if db is None:
-        from db import get_db_handler
-        db = await get_db_handler()
-        
-    event = await db.fetchone(
-        "SELECT * FROM events WHERE event_id = ? AND game_id = ?",
-        (event_id, game_id)
-    )
-    return event
 
 
 async def fetch_events_for_game(game_id, db=None):
