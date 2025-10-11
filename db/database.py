@@ -1,50 +1,87 @@
 """Database connection and schema for the Discord bot."""
-import aiosqlite
+
+import asyncio
 import logging
+from contextlib import asynccontextmanager
+
+import aiosqlite
 
 logger = logging.getLogger(__name__)
 
 # Database path - use local mounted directory instead of network storage
 DATABASE_PATH = "/db/bingobot.db"
 
+
+class _DatabaseExecutor:
+    """Lightweight wrapper exposing DB operations without additional locking."""
+
+    def __init__(self, connection: aiosqlite.Connection):
+        self._conn = connection
+
+    async def execute(self, query, params=None):
+        cursor = await self._conn.execute(query, params or ())
+        await cursor.close()
+
+    async def execute_insert(self, query, params=None) -> int:
+        cursor = await self._conn.execute(query, params or ())
+        lastrowid = cursor.lastrowid
+        await cursor.close()
+        return lastrowid
+
+    async def executemany(self, query, seq_of_params):
+        cursor = await self._conn.executemany(query, seq_of_params)
+        await cursor.close()
+
+    async def fetchone(self, query, params=None):
+        cursor = await self._conn.execute(query, params or ())
+        result = await cursor.fetchone()
+        await cursor.close()
+        return result
+
+    async def fetchall(self, query, params=None):
+        cursor = await self._conn.execute(query, params or ())
+        result = await cursor.fetchall()
+        await cursor.close()
+        return result
+
+
 class DatabaseHandler:
     """Single database handler that maintains one connection and ensures sequential access."""
-    
+
     def __init__(self, db_path: str = DATABASE_PATH):
-        """Initialize the database handler.
-        
-        Args:
-            db_path: Path to the SQLite database file
-        """
         self.db_path = db_path
-        self.db = None
+        self.db: aiosqlite.Connection | None = None
         self._initialized = False
-        
+        self._lock = asyncio.Lock()
+
     async def initialize(self):
         """Initialize the database connection and schema."""
         if self._initialized:
             return
-            
+
         logger.info("DATABASE: Initializing database connection")
         self.db = await aiosqlite.connect(self.db_path)
         self.db.row_factory = aiosqlite.Row
-        
+
         # Keep minimal pragmas - remove potentially problematic ones
         await self.db.execute("PRAGMA busy_timeout=5000")  # Reduced timeout
-        
+
         logger.info("DATABASE: SQLite pragmas set")
-        
+
         # Create tables
-        await self.db.execute('''
+        await self.db.execute(
+            """
         CREATE TABLE IF NOT EXISTS games (
             game_id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
             is_active BOOLEAN DEFAULT 0,
             grid_size INTEGER DEFAULT 4
         )
-        ''')
-        
-        await self.db.execute('''
+        """
+        )
+
+        await self.db.execute(
+            """
         CREATE TABLE IF NOT EXISTS events (
             event_id INTEGER,
             game_id INTEGER,
@@ -53,9 +90,11 @@ class DatabaseHandler:
             PRIMARY KEY (event_id, game_id),
             FOREIGN KEY (game_id) REFERENCES games (game_id)
         )
-        ''')
-        
-        await self.db.execute('''
+        """
+        )
+
+        await self.db.execute(
+            """
         CREATE TABLE IF NOT EXISTS boards (
             board_id INTEGER PRIMARY KEY AUTOINCREMENT,
             game_id INTEGER,
@@ -64,9 +103,11 @@ class DatabaseHandler:
             FOREIGN KEY (game_id) REFERENCES games (game_id),
             UNIQUE (game_id, user_id)
         )
-        ''')
-        
-        await self.db.execute('''
+        """
+        )
+
+        await self.db.execute(
+            """
         CREATE TABLE IF NOT EXISTS board_squares (
             board_id INTEGER,
             row INTEGER,
@@ -75,9 +116,11 @@ class DatabaseHandler:
             PRIMARY KEY (board_id, row, column),
             FOREIGN KEY (board_id) REFERENCES boards (board_id)
         )
-        ''')
-        
-        await self.db.execute('''
+        """
+        )
+
+        await self.db.execute(
+            """
         CREATE TABLE IF NOT EXISTS votes (
             event_id INTEGER,
             game_id INTEGER,
@@ -86,126 +129,132 @@ class DatabaseHandler:
             PRIMARY KEY (event_id, game_id, user_id),
             FOREIGN KEY (game_id) REFERENCES games (game_id)
         )
-        ''')
-        
+        """
+        )
+
         await self.db.commit()
         self._initialized = True
         logger.info("DATABASE: Database initialized successfully")
-        
+
+    def _executor(self) -> _DatabaseExecutor:
+        if not self.db:
+            raise RuntimeError("Database connection not initialized")
+        return _DatabaseExecutor(self.db)
+
     async def execute(self, query, params=None):
-        """Execute a query and return the cursor.
-        
-        Args:
-            query: SQL query to execute
-            params: Parameters for the query
-            
-        Returns:
-            Cursor with results
-        """
         if not self._initialized:
             await self.initialize()
-            
-        logger.debug(f"DATABASE: Executing query: {query[:50]}...")
-        if params:
-            cursor = await self.db.execute(query, params)
-        else:
-            cursor = await self.db.execute(query)
-        return cursor
-    
-    async def fetchone(self, query, params=None):
-        """Execute a query and fetch one result.
-        
-        Args:
-            query: SQL query to execute
-            params: Parameters for the query
-            
-        Returns:
-            Single row result or None
-        """
-        if not self._initialized:
-            await self.initialize()
-            
-        if params:
-            cursor = await self.db.execute(query, params)
-        else:
-            cursor = await self.db.execute(query)
-        result = await cursor.fetchone()
-        await cursor.close()
-        return result
-    
-    async def fetchall(self, query, params=None):
-        """Execute a query and fetch all results.
-        
-        Args:
-            query: SQL query to execute
-            params: Parameters for the query
-            
-        Returns:
-            List of row results
-        """
-        if not self._initialized:
-            await self.initialize()
-            
-        if params:
-            cursor = await self.db.execute(query, params)
-        else:
-            cursor = await self.db.execute(query)
-        results = await cursor.fetchall()
-        await cursor.close()
-        return results
-    
+
+        async with self._lock:
+            logger.debug(f"DATABASE: Executing query: {query[:50]}...")
+            await self._executor().execute(query, params)
+
     async def execute_and_commit(self, query, params=None):
-        """Execute a query and commit the transaction.
-        
-        Args:
-            query: SQL query to execute
-            params: Parameters for the query
-            
-        Returns:
-            Cursor with results
-        """
         if not self._initialized:
             await self.initialize()
-            
-        try:
-            if params:
-                cursor = await self.db.execute(query, params)
-            else:
-                cursor = await self.db.execute(query)
-            await self.db.commit()
-            return cursor
-        except Exception as e:
-            logger.error(f"Database error in execute_and_commit: {type(e).__name__}: {str(e)}")
+
+        async with self._lock:
+            try:
+                logger.debug(f"DATABASE: Executing+commit query: {query[:50]}...")
+                await self._executor().execute(query, params)
+                await self.db.commit()
+            except Exception as e:
+                logger.error(
+                    f"Database error in execute_and_commit: {type(e).__name__}: {str(e)}"
+                )
+                try:
+                    await self.db.rollback()
+                except Exception as rollback_error:
+                    logger.error(
+                        f"Rollback failed: {type(rollback_error).__name__}: {str(rollback_error)}"
+                    )
+                raise
+
+    async def fetchone(self, query, params=None):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
+            return await self._executor().fetchone(query, params)
+
+    async def fetchall(self, query, params=None):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
+            return await self._executor().fetchall(query, params)
+
+    async def executemany(self, query, seq_of_params, *, commit=False):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
+            try:
+                await self._executor().executemany(query, seq_of_params)
+                if commit:
+                    await self.db.commit()
+            except Exception as e:
+                logger.error(
+                    f"Database error in executemany: {type(e).__name__}: {str(e)}"
+                )
+                if commit:
+                    try:
+                        await self.db.rollback()
+                    except Exception as rollback_error:
+                        logger.error(
+                            f"Rollback failed: {type(rollback_error).__name__}: {str(rollback_error)}"
+                        )
+                raise
+
+    async def commit(self):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
+            try:
+                await self.db.commit()
+            except Exception as e:
+                logger.error(f"Database error in commit: {type(e).__name__}: {str(e)}")
+                raise
+
+    async def rollback(self):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
             try:
                 await self.db.rollback()
-            except Exception as rollback_error:
-                logger.error(f"Rollback failed: {type(rollback_error).__name__}: {str(rollback_error)}")
-            raise
-    
-    async def commit(self):
-        """Commit the current transaction."""
-        if not self._initialized:
-            await self.initialize()
-            
-        try:
-            await self.db.commit()
-        except Exception as e:
-            logger.error(f"Database error in commit: {type(e).__name__}: {str(e)}")
-            raise
-    
+            except Exception as e:
+                logger.error(
+                    f"Database error in rollback: {type(e).__name__}: {str(e)}"
+                )
+                raise
+
     async def close(self):
-        """Close the database connection."""
         if self.db:
             logger.info("DATABASE: Closing database connection")
             await self.db.close()
             self.db = None
             self._initialized = False
 
+    @asynccontextmanager
+    async def transaction(self):
+        if not self._initialized:
+            await self.initialize()
+
+        async with self._lock:
+            try:
+                await self.db.execute("BEGIN")
+                executor = self._executor()
+                yield executor
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+                raise
+
 
 # Singleton database handler
-_db_handler = None
-
-# Legacy database instance (removed)
+_db_handler: DatabaseHandler | None = None
 
 
 async def get_db_handler() -> DatabaseHandler:
@@ -218,10 +267,6 @@ async def get_db_handler() -> DatabaseHandler:
     return _db_handler
 
 
-    
-
-
 async def get_db() -> DatabaseHandler:
     """Get the database instance (now returns DatabaseHandler for consistency)."""
-    # Route all database access through the single handler
     return await get_db_handler()
