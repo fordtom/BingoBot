@@ -48,14 +48,10 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def load_cogs():
     """Load all cogs."""
-    await bot.load_extension('bingo.cog')
-    logger.info("Bingo cog loaded")
     await bot.load_extension('ai.cog')
     logger.info("AI cog loaded")
     await bot.load_extension('filesystem.cog')
     logger.info("Filesystem cog loaded")
-    await bot.load_extension('monitoring.cog')
-    logger.info("Monitoring cog loaded")
 
 
 @bot.event

@@ -1,7 +1,7 @@
 [project]
-name = "bingobot"
+name = "ai-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Discord bot with AI interface for complex python tasks"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
