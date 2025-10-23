@@ -1,7 +1,7 @@
 """Main Discord bot application entry point.
 
 This module initializes the Discord bot and registers all command modules.
-It handles bot startup, database initialization, and command synchronization.
+It handles bot startup and command synchronization.
 """
 import logging
 import os
@@ -11,8 +11,6 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from utils.env_utils import get_discord_token, get_allowed_channel_id
-
-from db import get_db
 
 # Configure logging
 log_file = "/data/bot.log" if os.path.exists("/data") else "bot.log"
@@ -48,23 +46,16 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def load_cogs():
     """Load all cogs."""
-    await bot.load_extension('bingo.cog')
-    logger.info("Bingo cog loaded")
     await bot.load_extension('ai.cog')
     logger.info("AI cog loaded")
     await bot.load_extension('filesystem.cog')
     logger.info("Filesystem cog loaded")
-    await bot.load_extension('monitoring.cog')
-    logger.info("Monitoring cog loaded")
 
 
 @bot.event
 async def on_ready():
     """Called when the bot is ready and connected to Discord."""
     logger.info(f'Logged in as {bot.user.name} ({bot.user.id})')
-    
-    # Initialize the database
-    await get_db()
     
     # Initialize MCP servers once for the agent interface
     try:
